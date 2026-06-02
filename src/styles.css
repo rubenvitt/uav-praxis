@@ -1,0 +1,40 @@
+:root {
+  --drk-rot: #e30613;
+  --grau: #f2f2f2;
+  --text: #1a1a1a;
+}
+* { box-sizing: border-box; }
+body { margin: 0; font-family: system-ui, sans-serif; color: var(--text); }
+.app { max-width: 640px; margin: 0 auto; padding: 16px; }
+
+.kopf h1 { font-size: 1.3rem; margin: 0 0 4px; }
+.gesamt { font-weight: 600; margin: 0 0 8px; }
+.balken { height: 10px; background: var(--grau); border-radius: 5px; overflow: hidden; }
+.balken-fuell { height: 100%; background: var(--drk-rot); transition: width 0.3s; }
+
+section h2 { font-size: 1rem; margin: 20px 0 8px; }
+.cards { display: flex; flex-direction: column; gap: 8px; }
+.card {
+  display: grid; grid-template-columns: auto 1fr auto; gap: 8px; align-items: center;
+  width: 100%; min-height: 56px; padding: 12px; border: 1px solid #ddd; border-radius: 10px;
+  background: #fff; text-align: left; font-size: 1rem; cursor: pointer;
+}
+.card .nummer { font-weight: 700; color: var(--drk-rot); }
+.card .meta { display: flex; gap: 8px; align-items: center; }
+.badge { font-size: 0.75rem; padding: 2px 8px; border-radius: 999px; background: var(--grau); }
+.status-erledigt { border-color: var(--drk-rot); }
+.status-erledigt .badge { background: var(--drk-rot); color: #fff; }
+.status-nicht-anwendbar { opacity: 0.6; }
+
+.detail .zurueck { background: none; border: none; color: var(--drk-rot); font-size: 1rem; padding: 8px 0; cursor: pointer; }
+.detail h2 { font-size: 1.2rem; }
+.lernziel { font-style: italic; color: #444; }
+.warnung { border: 2px solid var(--drk-rot); border-radius: 10px; padding: 8px 12px; background: #fff5f5; }
+.na-toggle { display: flex; gap: 8px; align-items: center; margin: 12px 0; }
+.erfassung .liste { list-style: none; padding: 0; display: flex; flex-direction: column; gap: 6px; }
+.erfassung .liste li { display: flex; justify-content: space-between; align-items: center; background: var(--grau); padding: 8px 12px; border-radius: 8px; }
+.df-form { display: flex; flex-direction: column; gap: 8px; margin-top: 12px; }
+.df-form label { display: flex; flex-direction: column; gap: 4px; font-size: 0.9rem; }
+.df-form input, .ziel input { min-height: 44px; padding: 8px; font-size: 1rem; border: 1px solid #ccc; border-radius: 8px; }
+.df-form button, .erfassung button[type="submit"] { min-height: 48px; background: var(--drk-rot); color: #fff; border: none; border-radius: 8px; font-size: 1rem; cursor: pointer; }
+.speicher-warnung { border: 2px solid var(--drk-rot); background: #fff5f5; color: var(--text); padding: 10px 12px; border-radius: 10px; margin-bottom: 12px; font-size: 0.9rem; }
