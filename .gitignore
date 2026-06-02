@@ -25,3 +25,6 @@ dist-ssr
 
 # Brainstorm visual companion
 .superpowers/
+
+# Secrets
+.env
