@@ -77,7 +77,7 @@ CREATE TABLE IF NOT EXISTS task_status (
 
 -- Server-Sessions (Admin + Teilnehmer)
 CREATE TABLE IF NOT EXISTS sessions (
-  token       TEXT PRIMARY KEY,        -- opakes Random-Token (im httpOnly-Cookie)
+  token       TEXT PRIMARY KEY,        -- SHA-256-Hash des Roh-Tokens (Cookie hält das Roh-Token)
   kind        TEXT NOT NULL,           -- 'admin' | 'participant'
   subject_id  TEXT NOT NULL,           -- admins.id | participants.id
   created_at  TEXT NOT NULL,

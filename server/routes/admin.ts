@@ -74,7 +74,12 @@ adminRouter.get('/courses/:id/export', (c) => {
 
   const zeilen = repo.kursFortschritt(courseId);
   const header = ['Name', 'Code', 'Aktiv', 'Erledigt', 'Gesamt', 'Quote', 'ZuletztGesehen'];
-  const csvFeld = (v: string) => `"${v.replace(/"/g, '""')}"`;
+  const csvFeld = (v: string) => {
+    // CSV-Formel-Injection verhindern: Werte, die (auch nach führendem Tab/CR)
+    // mit = + - @ beginnen, mit führendem Apostroph neutralisieren.
+    const sicher = /^[\t\r]*[=+\-@]/.test(v) ? `'${v}` : v;
+    return `"${sicher.replace(/"/g, '""')}"`;
+  };
   const rows = zeilen.map((z) =>
     [
       z.participant.name,

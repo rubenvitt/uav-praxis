@@ -28,3 +28,6 @@ dist-ssr
 
 # Secrets
 .env
+
+# Lokale SQLite-DB
+data/

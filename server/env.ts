@@ -1,15 +1,31 @@
 import { z } from 'zod';
 
+/** Leere Strings als „nicht gesetzt" behandeln (z. B. OIDC im Dev-Betrieb leer). */
+const optionalUrl = z
+  .string()
+  .trim()
+  .optional()
+  .transform((v) => (v ? v : undefined))
+  .pipe(z.string().url().optional());
+
+const optionalText = z
+  .string()
+  .trim()
+  .optional()
+  .transform((v) => (v ? v : undefined))
+  .pipe(z.string().min(1).optional());
+
 const envSchema = z.object({
   PORT: z.coerce.number().int().positive().default(8787),
   PUBLIC_BASE_URL: z.string().url().default('http://localhost:8787'),
   DATABASE_PATH: z.string().min(1).default('./data/app.db'),
   SESSION_SECRET: z.string().min(32, 'SESSION_SECRET muss mindestens 32 Zeichen lang sein'),
-  OIDC_ISSUER: z.string().url().optional(),
-  OIDC_CLIENT_ID: z.string().min(1).optional(),
-  OIDC_CLIENT_SECRET: z.string().min(1).optional(),
-  OIDC_REDIRECT_URI: z.string().url().optional(),
+  OIDC_ISSUER: optionalUrl,
+  OIDC_CLIENT_ID: optionalText,
+  OIDC_CLIENT_SECRET: optionalText,
+  OIDC_REDIRECT_URI: optionalUrl,
   ADMIN_ALLOWLIST: z.string().optional(),
+  TRUST_PROXY: z.string().optional(),
 });
 
 const parsed = envSchema.safeParse(process.env);
@@ -45,6 +61,13 @@ const adminAllowlist = (raw.ADMIN_ALLOWLIST ?? '')
 /** Secure-Cookies wenn die öffentliche Basis-URL https nutzt. */
 const cookieSecure = raw.PUBLIC_BASE_URL.startsWith('https://');
 
+/**
+ * Nur wenn explizit gesetzt, wird dem `x-forwarded-for`-Header vertraut (Betrieb
+ * hinter einem Reverse-Proxy). Default false → IP kommt aus der Socket-Verbindung
+ * und der Header ist nicht blind spoofbar.
+ */
+const trustProxy = raw.TRUST_PROXY === 'true';
+
 export const env = {
   PORT: raw.PORT,
   PUBLIC_BASE_URL: raw.PUBLIC_BASE_URL,
@@ -57,6 +80,7 @@ export const env = {
   adminAllowlist,
   oidcEnabled,
   cookieSecure,
+  trustProxy,
 } as const;
 
 export type Env = typeof env;

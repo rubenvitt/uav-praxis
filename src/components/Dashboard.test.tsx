@@ -12,9 +12,9 @@ function vollerFortschritt() {
 }
 
 describe('Dashboard', () => {
-  it('zeigt den Gesamtfortschritt 0 / 24', () => {
+  it('zeigt den Gesamtfortschritt 0 von 24', () => {
     render(<Dashboard fortschritt={vollerFortschritt()} onSelect={vi.fn()} />);
-    expect(screen.getByText(/0 \/ 24/)).toBeInTheDocument();
+    expect(screen.getByText(/0 von 24/)).toBeInTheDocument();
   });
 
   it('listet alle 24 Aufgaben', () => {

@@ -1,0 +1,415 @@
+/* Admin-Bereich: ruhig, tabellarisch, klar. Nutzt das Designsystem aus
+   src/design/tokens.css (weiß, viel Weißraum, Rot #e30613 nur als Akzent). */
+
+.admin {
+  min-height: 100vh;
+  background: var(--flaeche-2);
+  color: var(--text);
+  font-family: var(--font);
+}
+
+.admin-kopf {
+  background: var(--flaeche);
+  border-bottom: 1px solid var(--linie);
+  padding: 14px 20px;
+  display: flex;
+  align-items: center;
+  gap: 20px;
+  flex-wrap: wrap;
+}
+.admin-kopf .eyebrow {
+  font-size: 0.7rem;
+  letter-spacing: 0.12em;
+  text-transform: uppercase;
+  color: var(--akzent);
+  font-weight: 700;
+  margin: 0;
+}
+.admin-kopf h1 {
+  font-size: 1.1rem;
+  margin: 2px 0 0;
+}
+.admin-titel {
+  margin-right: auto;
+}
+.admin-nav {
+  display: flex;
+  gap: 4px;
+  flex-wrap: wrap;
+}
+.admin-nav a {
+  text-decoration: none;
+  color: var(--text-leise);
+  padding: 8px 12px;
+  border-radius: var(--radius-s);
+  font-size: 0.92rem;
+  min-height: 44px;
+  display: inline-flex;
+  align-items: center;
+}
+.admin-nav a:hover {
+  background: var(--flaeche-2);
+  color: var(--text);
+}
+.admin-nav a.aktiv {
+  background: var(--akzent-weich);
+  color: var(--akzent);
+  font-weight: 600;
+}
+.admin-konto {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  font-size: 0.88rem;
+  color: var(--text-leise);
+}
+
+.admin-inhalt {
+  max-width: 980px;
+  margin: 0 auto;
+  padding: 24px 20px 64px;
+}
+
+.admin-inhalt h2 {
+  font-size: 1.25rem;
+  margin: 0 0 4px;
+}
+.admin-sektion-kopf {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 16px;
+  flex-wrap: wrap;
+  margin-bottom: 20px;
+}
+.admin-pfad {
+  font-size: 0.85rem;
+  color: var(--text-leise);
+  margin: 0 0 12px;
+}
+.admin-pfad a {
+  color: var(--text-leise);
+}
+
+/* Karten / Panels */
+.karte {
+  background: var(--flaeche);
+  border: 1px solid var(--linie);
+  border-radius: var(--radius);
+  box-shadow: var(--schatten);
+  padding: 20px;
+  margin-bottom: 20px;
+}
+.karte h3 {
+  font-size: 1rem;
+  margin: 0 0 14px;
+}
+
+/* Tabellen */
+.tabelle {
+  width: 100%;
+  border-collapse: collapse;
+  background: var(--flaeche);
+  font-size: 0.92rem;
+}
+.tabelle th,
+.tabelle td {
+  text-align: left;
+  padding: 12px 14px;
+  border-bottom: 1px solid var(--linie);
+  vertical-align: middle;
+}
+.tabelle th {
+  font-size: 0.74rem;
+  text-transform: uppercase;
+  letter-spacing: 0.06em;
+  color: var(--text-zart);
+  font-weight: 600;
+}
+.tabelle tr:last-child td {
+  border-bottom: none;
+}
+.tabelle .aktionen {
+  display: flex;
+  gap: 6px;
+  flex-wrap: wrap;
+  justify-content: flex-end;
+}
+.tabelle td.num {
+  text-align: right;
+  font-variant-numeric: tabular-nums;
+}
+.tabelle-umbruch {
+  overflow-x: auto;
+  border: 1px solid var(--linie);
+  border-radius: var(--radius);
+  background: var(--flaeche);
+}
+.tabelle-umbruch .tabelle {
+  border: none;
+}
+
+/* Buttons */
+.btn {
+  min-height: 44px;
+  padding: 0 16px;
+  border-radius: var(--radius-s);
+  border: 1px solid var(--linie);
+  background: var(--flaeche);
+  color: var(--text);
+  font-size: 0.92rem;
+  font-family: var(--font);
+  cursor: pointer;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 6px;
+}
+.btn:hover {
+  background: var(--flaeche-2);
+}
+.btn:disabled {
+  opacity: 0.5;
+  cursor: default;
+}
+.btn-primaer {
+  background: var(--akzent);
+  border-color: var(--akzent);
+  color: #fff;
+}
+.btn-primaer:hover {
+  background: #c70511;
+}
+.btn-klein {
+  min-height: 36px;
+  padding: 0 10px;
+  font-size: 0.84rem;
+}
+.btn-gefahr {
+  color: var(--akzent);
+  border-color: var(--linie);
+}
+.btn-gefahr:hover {
+  background: var(--akzent-weich);
+}
+
+/* Formulare */
+.feld {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  margin-bottom: 14px;
+}
+.feld > label,
+.feld-label {
+  font-size: 0.82rem;
+  color: var(--text-leise);
+  font-weight: 600;
+}
+.feld input[type='text'],
+.feld input[type='date'],
+.feld input[type='number'],
+.feld textarea,
+.eingabe {
+  min-height: 44px;
+  padding: 10px 12px;
+  border: 1px solid var(--linie);
+  border-radius: var(--radius-s);
+  font-size: 0.95rem;
+  font-family: var(--font);
+  background: var(--flaeche);
+  color: var(--text);
+  width: 100%;
+}
+.feld textarea {
+  min-height: 72px;
+  resize: vertical;
+}
+.feld input:focus,
+.feld textarea:focus,
+.eingabe:focus {
+  outline: 2px solid var(--akzent);
+  outline-offset: -1px;
+  border-color: var(--akzent);
+}
+.feld-reihe {
+  display: flex;
+  gap: 14px;
+  flex-wrap: wrap;
+}
+.feld-reihe > .feld {
+  flex: 1 1 160px;
+}
+.formular-aktionen {
+  display: flex;
+  gap: 10px;
+  margin-top: 6px;
+}
+
+/* Checkbox-Zeile */
+.check-zeile {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  min-height: 44px;
+  font-size: 0.92rem;
+}
+.check-zeile input {
+  width: 20px;
+  height: 20px;
+}
+
+/* Listen-Editor (schritte/hinweise) */
+.listen-editor {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+.listen-editor .zeile {
+  display: flex;
+  gap: 8px;
+  align-items: center;
+}
+.listen-editor .zeile .eingabe {
+  flex: 1;
+}
+
+/* Code / Magic-Link */
+.code-zelle {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+.code-wert {
+  font-family: ui-monospace, SFMono-Regular, Menlo, monospace;
+  background: var(--flaeche-2);
+  border: 1px solid var(--linie);
+  border-radius: var(--radius-s);
+  padding: 4px 10px;
+  font-size: 0.9rem;
+  letter-spacing: 0.05em;
+}
+.kopiert-hinweis {
+  color: var(--erfolg);
+  font-size: 0.82rem;
+}
+
+/* Quote-Balken */
+.quote-zelle {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  min-width: 160px;
+}
+.quote-balken {
+  flex: 1;
+  height: 8px;
+  background: var(--flaeche-2);
+  border-radius: 999px;
+  overflow: hidden;
+  border: 1px solid var(--linie);
+}
+.quote-fuell {
+  height: 100%;
+  background: var(--akzent);
+}
+.quote-zahl {
+  font-variant-numeric: tabular-nums;
+  font-size: 0.85rem;
+  color: var(--text-leise);
+  min-width: 38px;
+  text-align: right;
+}
+
+/* Badges / Status */
+.badge-status {
+  display: inline-block;
+  font-size: 0.72rem;
+  padding: 3px 9px;
+  border-radius: 999px;
+  background: var(--flaeche-2);
+  color: var(--text-leise);
+  border: 1px solid var(--linie);
+}
+.badge-status.inaktiv {
+  color: var(--text-zart);
+}
+.badge-status.archiviert {
+  background: var(--akzent-weich);
+  color: var(--akzent);
+  border-color: var(--akzent-weich);
+}
+
+/* Hinweise / Zustände */
+.admin-hinweis {
+  color: var(--text-leise);
+  font-size: 0.92rem;
+}
+.admin-fehler {
+  background: var(--akzent-weich);
+  border: 1px solid var(--akzent);
+  color: var(--text);
+  border-radius: var(--radius-s);
+  padding: 12px 14px;
+  margin-bottom: 16px;
+  font-size: 0.9rem;
+}
+.admin-leer {
+  text-align: center;
+  color: var(--text-leise);
+  padding: 32px 16px;
+}
+
+/* Login-Seite */
+.admin-login {
+  min-height: 100vh;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 24px;
+  background: var(--flaeche-2);
+}
+.admin-login .karte {
+  max-width: 380px;
+  width: 100%;
+  text-align: center;
+  margin: 0;
+}
+.admin-login .eyebrow {
+  font-size: 0.7rem;
+  letter-spacing: 0.12em;
+  text-transform: uppercase;
+  color: var(--akzent);
+  font-weight: 700;
+  margin: 0 0 6px;
+}
+.admin-login h1 {
+  font-size: 1.3rem;
+  margin: 0 0 8px;
+}
+.admin-login .btn-primaer {
+  width: 100%;
+  margin-top: 8px;
+}
+.admin-login .login-hinweis {
+  margin-top: 16px;
+  font-size: 0.82rem;
+  color: var(--text-leise);
+  line-height: 1.5;
+}
+
+/* Dezent ausgegraute Zeilen (archiviert / inaktiv) — eigenständig, ohne
+   Kopplung an die Teilnehmer-Stylesheet. */
+.zeile-inaktiv {
+  opacity: 0.55;
+}
+
+/* Ladeanzeige */
+.admin-laden {
+  min-height: 100vh;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  color: var(--text-leise);
+  font-size: 0.95rem;
+}

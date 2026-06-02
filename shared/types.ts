@@ -12,6 +12,7 @@ export interface TaskDTO {
   zielanzahlDefault: number;
   sortOrder: number;
   aktiv: boolean;
+  bildUrl?: string | null;
 }
 
 export interface ExecutionDTO {
@@ -43,7 +44,7 @@ export interface SyncRequest {
   executions: ExecutionDTO[]; // Upserts inkl. Tombstones (deletedAt gesetzt)
   taskStatus: TaskStatusDTO[]; // Upserts (last-write-wins via updatedAt)
 }
-export interface SyncResponse extends ProgressSnapshot {}
+export type SyncResponse = ProgressSnapshot;
 
 export type Identity =
   | { kind: 'anon' }

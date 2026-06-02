@@ -1,5 +1,7 @@
 import { Hono } from 'hono';
+import type { Context } from 'hono';
 import { getCookie } from 'hono/cookie';
+import { getConnInfo } from '@hono/node-server/conninfo';
 import { z } from 'zod';
 import type { AppEnv } from '../auth/middleware.ts';
 import { identitaetAufloesen } from '../auth/middleware.ts';
@@ -32,7 +34,8 @@ authRouter.get('/admin/callback', async (c) => {
 
   if (env.adminAllowlist.length > 0) {
     const email = (user.email ?? '').toLowerCase();
-    if (!env.adminAllowlist.includes(email)) {
+    // Nur verifizierte E-Mails, die in der Allowlist stehen, erhalten Admin-Zugang.
+    if (!user.emailVerified || !env.adminAllowlist.includes(email)) {
       throw new HttpError(
         403,
         'forbidden',
@@ -50,11 +53,26 @@ authRouter.get('/admin/callback', async (c) => {
 // POST /api/auth/participant { code } → Teilnehmer-Session
 const participantSchema = z.object({ code: z.string().min(1) });
 
+/**
+ * Client-IP fürs Rate-Limit. Primär aus der Socket-Verbindung (nicht spoofbar).
+ * `x-forwarded-for` wird NUR ausgewertet, wenn env.trustProxy gesetzt ist (Betrieb
+ * hinter einem vertrauenswürdigen Reverse-Proxy).
+ */
+function clientIp(c: Context<AppEnv>): string {
+  if (env.trustProxy) {
+    const xff = c.req.header('x-forwarded-for')?.split(',')[0]?.trim();
+    if (xff) return xff;
+  }
+  try {
+    return getConnInfo(c).remote.address ?? 'unknown';
+  } catch {
+    // Kein Socket verfügbar (z. B. Test-Client): konservativer Fallback.
+    return 'unknown';
+  }
+}
+
 authRouter.post('/participant', async (c) => {
-  const ip =
-    c.req.header('x-forwarded-for')?.split(',')[0]?.trim() ||
-    c.req.header('x-real-ip') ||
-    'unknown';
+  const ip = clientIp(c);
   if (!rateLimitErlaubt(ip)) {
     return fehler(c, 429, 'rate_limited', 'Zu viele Versuche. Bitte später erneut versuchen.');
   }

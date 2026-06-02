@@ -1,4 +1,4 @@
-import { randomBytes } from 'node:crypto';
+import { createHash, randomBytes } from 'node:crypto';
 import type { Context } from 'hono';
 import { setCookie, deleteCookie } from 'hono/cookie';
 import type { Identity } from '../../shared/types.ts';
@@ -33,7 +33,15 @@ interface ParticipantJoinRow {
   course_name: string;
 }
 
-/** Erzeugt eine neue Session (DB-backed) und liefert das opake Token. */
+/**
+ * Defense-in-depth: in der DB wird nur der SHA-256-Hash des Tokens gespeichert,
+ * nie das Roh-Token. Das Roh-Token lebt ausschließlich im httpOnly-Cookie.
+ */
+function tokenHash(token: string): string {
+  return createHash('sha256').update(token).digest('hex');
+}
+
+/** Erzeugt eine neue Session (DB-backed) und liefert das opake Roh-Token. */
 export function sessionErzeugen(kind: SessionKind, subjectId: string): string {
   const db = getDb();
   const token = randomBytes(32).toString('base64url');
@@ -43,7 +51,7 @@ export function sessionErzeugen(kind: SessionKind, subjectId: string): string {
     `INSERT INTO sessions (token, kind, subject_id, created_at, expires_at)
      VALUES (?, ?, ?, ?, ?)`,
   ).run(
-    token,
+    tokenHash(token),
     kind,
     subjectId,
     new Date(now).toISOString(),
@@ -52,17 +60,18 @@ export function sessionErzeugen(kind: SessionKind, subjectId: string): string {
   return token;
 }
 
-/** Validiert ein Token und liefert die zugehörige Identität oder null. */
+/** Validiert ein Roh-Token (Cookie-Wert) und liefert die Identität oder null. */
 export function sessionValidieren(token: string): Identity | null {
   if (!token) return null;
   const db = getDb();
+  const hash = tokenHash(token);
   const row = db
     .prepare(`SELECT token, kind, subject_id, expires_at FROM sessions WHERE token = ?`)
-    .get(token) as SessionRow | undefined;
+    .get(hash) as SessionRow | undefined;
   if (!row) return null;
 
   if (new Date(row.expires_at).getTime() <= Date.now()) {
-    db.prepare(`DELETE FROM sessions WHERE token = ?`).run(token);
+    db.prepare(`DELETE FROM sessions WHERE token = ?`).run(hash);
     return null;
   }
 
@@ -91,10 +100,10 @@ export function sessionValidieren(token: string): Identity | null {
   };
 }
 
-/** Löscht die Session zum Token (Logout). */
+/** Löscht die Session zum Roh-Token (Logout). */
 export function sessionLoeschen(token: string): void {
   if (!token) return;
-  getDb().prepare(`DELETE FROM sessions WHERE token = ?`).run(token);
+  getDb().prepare(`DELETE FROM sessions WHERE token = ?`).run(tokenHash(token));
 }
 
 /** Setzt das Session-Cookie mit der passenden Laufzeit. */

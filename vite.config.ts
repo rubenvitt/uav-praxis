@@ -9,7 +9,7 @@ export default defineConfig({
     VitePWA({
       registerType: 'autoUpdate',
       manifest: {
-        name: 'DRK Drohnen-Trainingsbegleiter',
+        name: 'Drohnen-Trainingsbegleiter',
         short_name: 'Drohnen-Training',
         description: 'Praxisleitfaden Drohnensteuerer BOS – Trainingsbegleiter',
         theme_color: '#e30613',
@@ -25,6 +25,9 @@ export default defineConfig({
     }),
   ],
   server: {
+    // Fester Dev-Port, damit der OIDC-Redirect (PUBLIC/REDIRECT auf :5174) passt.
+    port: 5174,
+    strictPort: true,
     proxy: {
       '/api': 'http://localhost:8787',
     },

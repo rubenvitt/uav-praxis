@@ -26,6 +26,7 @@ interface TaskRow {
   zielanzahl_default: number;
   sort_order: number;
   aktiv: number;
+  bild: string | null;
   updated_at: string;
 }
 
@@ -93,6 +94,7 @@ function mapTask(r: TaskRow): TaskDTO {
     zielanzahlDefault: r.zielanzahl_default,
     sortOrder: r.sort_order,
     aktiv: r.aktiv === 1,
+    bildUrl: r.bild,
   };
 }
 

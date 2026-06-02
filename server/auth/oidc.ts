@@ -67,6 +67,7 @@ export async function authorizationUrl(): Promise<string> {
 export interface OidcUser {
   sub: string;
   email: string | null;
+  emailVerified: boolean;
   name: string | null;
 }
 
@@ -107,10 +108,12 @@ export async function handleCallback(currentUrl: string): Promise<OidcUser> {
       idTokenExpected: true,
     });
   } catch (e) {
+    // Interne Fehlerdetails NUR serverseitig loggen, nicht an den Client geben.
+    console.error('OIDC-Token-Austausch fehlgeschlagen:', e);
     throw new HttpError(
       401,
       'oidc_exchange_failed',
-      `OIDC-Token-Austausch fehlgeschlagen: ${(e as Error).message}`,
+      'OIDC-Token-Austausch fehlgeschlagen.',
     );
   }
 
@@ -120,6 +123,7 @@ export async function handleCallback(currentUrl: string): Promise<OidcUser> {
   }
 
   const email = typeof claims.email === 'string' ? claims.email : null;
+  const emailVerified = claims.email_verified === true;
   const name =
     typeof claims.name === 'string'
       ? claims.name
@@ -127,7 +131,7 @@ export async function handleCallback(currentUrl: string): Promise<OidcUser> {
         ? claims.preferred_username
         : null;
 
-  return { sub: claims.sub, email, name };
+  return { sub: claims.sub, email, emailVerified, name };
 }
 
 /** Räumt abgelaufene OIDC-States auf (älter als 10 Minuten). */

@@ -16,7 +16,16 @@ describe('App', () => {
     await userEvent.click(screen.getByText(/Schwebeflug/));
     expect(screen.getByText(/Aufgabe 1\.1/)).toBeInTheDocument();
     await userEvent.click(screen.getByRole('button', { name: /Übersicht/ }));
-    expect(screen.getByText(/erledigt/)).toBeInTheDocument();
+    expect(screen.getByText(/Gesamtfortschritt/)).toBeInTheDocument();
+  });
+
+  it('spiegelt die geöffnete Aufgabe in der URL und kehrt per Browser-Zurück zurück', async () => {
+    render(<App />);
+    await userEvent.click(screen.getByText(/Schwebeflug/));
+    expect(window.location.pathname).toMatch(/^\/aufgabe\//);
+    window.history.back();
+    expect(await screen.findByText(/Gesamtfortschritt/)).toBeInTheDocument();
+    expect(window.location.pathname).toBe('/');
   });
 
   it('eine erfasste Durchführung erhöht den Zähler nach Rückkehr', async () => {

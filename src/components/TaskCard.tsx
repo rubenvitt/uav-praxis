@@ -1,12 +1,6 @@
 import type { Aufgabe } from '../data/tasks';
 import { type AufgabenFortschritt, aufgabenStatus } from '../domain/progress';
 
-const LABEL: Record<string, string> = {
-  offen: 'offen',
-  erledigt: 'erledigt',
-  'nicht-anwendbar': 'n. a.',
-};
-
 type Props = {
   aufgabe: Aufgabe;
   fortschritt: AufgabenFortschritt;
@@ -16,17 +10,22 @@ type Props = {
 export function TaskCard({ aufgabe, fortschritt, onSelect }: Props) {
   const status = aufgabenStatus(fortschritt);
   return (
-    <button className={`card status-${status}`} onClick={() => onSelect(aufgabe.id)}>
-      <span className="nummer">{aufgabe.nummer}</span>
-      <span className="titel">{aufgabe.titel}</span>
-      <span className="meta">
-        {status !== 'nicht-anwendbar' && (
-          <span className="zaehler">
-            {fortschritt.durchfuehrungen.length} / {fortschritt.zielanzahl}
-          </span>
-        )}
-        <span className="badge">{LABEL[status]}</span>
-      </span>
+    <button
+      type="button"
+      className={`aufgabe-zeile status-${status}`}
+      onClick={() => onSelect(aufgabe.id)}
+    >
+      <span className="aufgabe-nummer">{aufgabe.nummer}</span>
+      <span className="aufgabe-titel">{aufgabe.titel}</span>
+      {status === 'erledigt' ? (
+        <span className="aufgabe-badge badge-erledigt">erledigt</span>
+      ) : status === 'nicht-anwendbar' ? (
+        <span className="aufgabe-badge badge-na">nicht anwendbar</span>
+      ) : (
+        <span className="aufgabe-badge badge-zaehler">
+          {fortschritt.durchfuehrungen.length} / {fortschritt.zielanzahl}
+        </span>
+      )}
     </button>
   );
 }

@@ -6,8 +6,8 @@
   "scripts": {
     "dev": "concurrently -n web,api -c blue,magenta \"pnpm dev:web\" \"pnpm dev:api\"",
     "dev:web": "vite",
-    "dev:api": "tsx watch server/index.ts",
-    "start": "tsx server/index.ts",
+    "dev:api": "tsx watch --env-file-if-exists=.env server/index.ts",
+    "start": "tsx --env-file-if-exists=.env server/index.ts",
     "build": "tsc -b && vite build",
     "gen:images": "tsx scripts/generate-illustrations.ts",
     "lint": "eslint .",

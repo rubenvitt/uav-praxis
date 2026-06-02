@@ -66,6 +66,32 @@ describe('Admin-Routen (HTTP)', () => {
     expect(csv).toContain(tn.loginCode);
   });
 
+  it('maskiert CSV-Formel-Injection im Export (führender Apostroph)', async () => {
+    const cookie = adminCookie();
+    const a = app();
+
+    const kursRes = await a.request('/api/admin/courses', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json', Cookie: cookie },
+      body: JSON.stringify({ name: 'Kurs CSV' }),
+    });
+    const kurs = (await kursRes.json()) as { id: string };
+
+    // Name beginnt mit '=' → muss im CSV mit führendem Apostroph neutralisiert sein.
+    await a.request(`/api/admin/courses/${kurs.id}/participants`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json', Cookie: cookie },
+      body: JSON.stringify({ name: '=SUM(A1:A9)' }),
+    });
+
+    const csvRes = await a.request(`/api/admin/courses/${kurs.id}/export`, {
+      headers: { Cookie: cookie },
+    });
+    const csv = await csvRes.text();
+    expect(csv).toContain(`"'=SUM(A1:A9)"`);
+    expect(csv).not.toContain(`"=SUM(A1:A9)"`);
+  });
+
   it('validiert Eingaben (400 bei fehlendem Namen)', async () => {
     const cookie = adminCookie();
     const res = await app().request('/api/admin/courses', {
