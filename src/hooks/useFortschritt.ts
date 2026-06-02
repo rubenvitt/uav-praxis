@@ -31,10 +31,8 @@ function migrieren(state: AppState): AppState {
   return { schemaVersion: SCHEMA_VERSION, fortschritt: gemischt };
 }
 
-let zaehler = 0;
 function neueId(): string {
-  zaehler += 1;
-  return `d-${zaehler}-${zaehler * 31 + 7}`;
+  return crypto.randomUUID();
 }
 
 export function useFortschritt() {
