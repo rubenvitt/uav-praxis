@@ -101,7 +101,12 @@ export function TaskDetail({
                 <span>
                   {d.datum} · {d.drohnensteuerer || '—'} / {d.luftraumbeobachter || '—'}
                 </span>
-                <button onClick={() => onRemove(d.id)} aria-label="Eintrag löschen">
+                <button
+                  onClick={() => {
+                    if (window.confirm('Diese Durchführung wirklich löschen?')) onRemove(d.id);
+                  }}
+                  aria-label="Eintrag löschen"
+                >
                   ✕
                 </button>
               </li>

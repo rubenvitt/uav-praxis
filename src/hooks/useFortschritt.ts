@@ -36,8 +36,9 @@ function neueId(): string {
 }
 
 export function useFortschritt() {
-  const [state, setState] = useLocalStorage<AppState>(STORAGE_KEY, initialerState());
-  const sicher = state.schemaVersion === SCHEMA_VERSION ? state : migrieren(state);
+  const [state, setState, speicherfehler] = useLocalStorage<AppState>(STORAGE_KEY, initialerState());
+  // Nur ältere Stände migrieren; einen unbekannten höheren Schema-Stand defensiv NICHT überschreiben.
+  const sicher = state.schemaVersion < SCHEMA_VERSION ? migrieren(state) : state;
 
   const aendern = useCallback(
     (id: string, fn: (f: AufgabenFortschritt) => AufgabenFortschritt) => {
@@ -81,6 +82,7 @@ export function useFortschritt() {
   );
 
   return {
+    speicherfehler,
     fortschritt: sicher.fortschritt,
     durchfuehrungHinzufuegen,
     durchfuehrungEntfernen,

@@ -7,6 +7,7 @@ import { useFortschritt } from './hooks/useFortschritt';
 export default function App() {
   const [aktiv, setAktiv] = useState<string | null>(null);
   const {
+    speicherfehler,
     fortschritt,
     durchfuehrungHinzufuegen,
     durchfuehrungEntfernen,
@@ -17,9 +18,16 @@ export default function App() {
   const heute = useMemo(() => new Date().toISOString().slice(0, 10), []);
   const aufgabe = aktiv ? AUFGABEN.find((a) => a.id === aktiv) ?? null : null;
 
-  if (aufgabe) {
-    return (
-      <main className="app">
+  return (
+    <main className="app">
+      {speicherfehler && (
+        <div className="speicher-warnung" role="alert">
+          Achtung: Der Fortschritt kann nicht gespeichert werden (Speicher voll oder nicht
+          verfügbar). Eingaben gehen beim Schließen der App verloren.
+        </div>
+      )}
+
+      {aufgabe ? (
         <TaskDetail
           aufgabe={aufgabe}
           fortschritt={fortschritt[aufgabe.id]}
@@ -30,13 +38,9 @@ export default function App() {
           onNichtAnwendbar={(w) => nichtAnwendbarSetzen(aufgabe.id, w)}
           onBack={() => setAktiv(null)}
         />
-      </main>
-    );
-  }
-
-  return (
-    <main className="app">
-      <Dashboard fortschritt={fortschritt} onSelect={setAktiv} />
+      ) : (
+        <Dashboard fortschritt={fortschritt} onSelect={setAktiv} />
+      )}
     </main>
   );
 }

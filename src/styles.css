@@ -37,3 +37,4 @@ section h2 { font-size: 1rem; margin: 20px 0 8px; }
 .df-form label { display: flex; flex-direction: column; gap: 4px; font-size: 0.9rem; }
 .df-form input, .ziel input { min-height: 44px; padding: 8px; font-size: 1rem; border: 1px solid #ccc; border-radius: 8px; }
 .df-form button, .erfassung button[type="submit"] { min-height: 48px; background: var(--drk-rot); color: #fff; border: none; border-radius: 8px; font-size: 1rem; cursor: pointer; }
+.speicher-warnung { border: 2px solid var(--drk-rot); background: #fff5f5; color: var(--text); padding: 10px 12px; border-radius: 10px; margin-bottom: 12px; font-size: 0.9rem; }

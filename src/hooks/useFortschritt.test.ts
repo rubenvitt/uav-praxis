@@ -49,4 +49,33 @@ describe('useFortschritt', () => {
     act(() => result.current.nichtAnwendbarSetzen('2-1', true));
     expect(result.current.fortschritt['2-1'].nichtAnwendbar).toBe(true);
   });
+
+  it('mischt neue/fehlende Aufgaben in einen veralteten Stand ein (Migration)', () => {
+    localStorage.setItem(
+      'drk-drohnen-fortschritt',
+      JSON.stringify({
+        schemaVersion: 0,
+        fortschritt: {
+          '1-1': { zielanzahl: 9, durchfuehrungen: [], nichtAnwendbar: false },
+        },
+      }),
+    );
+    const { result } = renderHook(() => useFortschritt());
+    expect(result.current.fortschritt['1-1'].zielanzahl).toBe(9); // bestehender Stand erhalten
+    expect(result.current.fortschritt['2-1']).toBeDefined();      // fehlende Aufgabe nachgemischt
+  });
+
+  it('überschreibt einen unbekannten höheren Schema-Stand nicht', () => {
+    localStorage.setItem(
+      'drk-drohnen-fortschritt',
+      JSON.stringify({
+        schemaVersion: 99,
+        fortschritt: {
+          '1-1': { zielanzahl: 7, durchfuehrungen: [], nichtAnwendbar: false },
+        },
+      }),
+    );
+    const { result } = renderHook(() => useFortschritt());
+    expect(result.current.fortschritt['1-1'].zielanzahl).toBe(7); // unverändert übernommen
+  });
 });

@@ -1,4 +1,4 @@
-import { describe, it, expect, beforeEach } from 'vitest';
+import { describe, it, expect, beforeEach, vi } from 'vitest';
 import { renderHook, act } from '@testing-library/react';
 import { useLocalStorage } from './useLocalStorage';
 
@@ -23,5 +23,14 @@ describe('useLocalStorage', () => {
     localStorage.setItem('k', '{kaputt');
     const { result } = renderHook(() => useLocalStorage('k', { n: 9 }));
     expect(result.current[0]).toEqual({ n: 9 });
+  });
+
+  it('meldet einen Speicherfehler, wenn das Schreiben fehlschlägt', () => {
+    const spy = vi.spyOn(Storage.prototype, 'setItem').mockImplementation(() => {
+      throw new Error('voll');
+    });
+    const { result } = renderHook(() => useLocalStorage('k', { n: 1 }));
+    expect(result.current[2]).toBe(true);
+    spy.mockRestore();
   });
 });
