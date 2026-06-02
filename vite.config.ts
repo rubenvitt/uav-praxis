@@ -14,6 +14,7 @@ export default defineConfig({
         description: 'Praxisleitfaden Drohnensteuerer BOS – Trainingsbegleiter',
         theme_color: '#e30613',
         background_color: '#ffffff',
+        lang: 'de',
         display: 'standalone',
         start_url: '.',
         icons: [

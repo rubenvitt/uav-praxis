@@ -48,4 +48,4 @@ Startet einen lokalen Preview-Server für den `dist/`-Build.
 ## Hinweise
 
 - **Zielanzahl pro Aufgabe:** Die `zielanzahlDefault`-Werte pro Aufgabe sind Schätzungen aus der Transkription des Praxisleitfadens und können in der App individuell pro Aufgabe angepasst werden.
-- **App-Icons:** Die Icons unter `public/icons/` sind aus der bestehenden `favicon.svg` konvertierte Platzhalter und sollten durch das offizielle DRK-Logo ersetzt werden.
+- **App-Icons:** Die Icons unter `public/icons/` sind aus der bestehenden `favicon.svg` konvertiert. Bei Bedarf können sie durch das offizielle DRK-Logo ersetzt werden.
