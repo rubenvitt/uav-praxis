@@ -23,4 +23,11 @@ describe('AUFGABEN', () => {
       expect(a.zielanzahlDefault).toBeGreaterThanOrEqual(1);
     }
   });
+
+  it('id, teil und nummer sind konsistent', () => {
+    for (const a of AUFGABEN) {
+      expect(a.id).toBe(a.nummer.replace('.', '-'));
+      expect(a.id.split('-')[0]).toBe(String(a.teil));
+    }
+  });
 });
