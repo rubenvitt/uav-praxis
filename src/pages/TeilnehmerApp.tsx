@@ -1,5 +1,5 @@
 import { useEffect, useMemo, useState } from 'react';
-import { useNavigate, useParams } from 'react-router-dom';
+import { useNavigate } from '@tanstack/react-router';
 import { Dashboard } from '../components/Dashboard';
 import { TaskDetail } from '../components/TaskDetail';
 import { useFortschritt } from '../hooks/useFortschritt';
@@ -25,9 +25,8 @@ function SyncIndikator() {
   );
 }
 
-export function TeilnehmerApp() {
+export function TeilnehmerApp({ taskId }: { taskId?: string }) {
   const navigate = useNavigate();
-  const { taskId } = useParams<{ taskId: string }>();
   const aktiv = taskId ?? null;
   const katalog = useKatalog();
   const {
@@ -45,7 +44,7 @@ export function TeilnehmerApp() {
   // Unbekannte Aufgaben-ID in der URL (z. B. veralteter Deep-Link) → zurück zum
   // Dashboard, ohne einen zusätzlichen History-Eintrag zu erzeugen.
   useEffect(() => {
-    if (aktiv && !aufgabe) navigate('/', { replace: true });
+    if (aktiv && !aufgabe) navigate({ to: '/', replace: true });
   }, [aktiv, aufgabe, navigate]);
 
   return (
@@ -69,13 +68,13 @@ export function TeilnehmerApp() {
           onRemove={(eid) => durchfuehrungEntfernen(aufgabe.id, eid)}
           onZielanzahl={(z) => zielanzahlSetzen(aufgabe.id, z)}
           onNichtAnwendbar={(w) => nichtAnwendbarSetzen(aufgabe.id, w)}
-          onBack={() => navigate('/')}
+          onBack={() => navigate({ to: '/' })}
         />
       ) : (
         <Dashboard
           katalog={katalog}
           fortschritt={fortschritt}
-          onSelect={(id) => navigate(`/aufgabe/${id}`)}
+          onSelect={(id) => navigate({ to: '/aufgabe/$taskId', params: { taskId: id } })}
         />
       )}
 

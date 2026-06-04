@@ -4,7 +4,7 @@
  * lokalen Übungsmodus (§9). Wird von der `/`-Route nur angezeigt, solange kein
  * Teilnehmer eingeloggt ist und der lokale Modus nicht gewählt wurde.
  */
-import { useNavigate } from 'react-router-dom';
+import { useNavigate } from '@tanstack/react-router';
 
 type Props = {
   /** Wechselt in den anonymen lokalen Übungsmodus (Dashboard ohne Anmeldung). */
@@ -24,7 +24,7 @@ export function StartPage({ onLokalStart }: Props) {
       <p className="login-hinweis">Wähle deinen Zugang.</p>
 
       <div className="start-auswahl">
-        <button type="button" className="start-karte" onClick={() => navigate('/login')}>
+        <button type="button" className="start-karte" onClick={() => navigate({ to: '/login' })}>
           <span className="start-karte-icon" aria-hidden="true">
             👤
           </span>
@@ -32,7 +32,7 @@ export function StartPage({ onLokalStart }: Props) {
           <span className="start-karte-text">Mit persönlichem Code anmelden</span>
         </button>
 
-        <button type="button" className="start-karte" onClick={() => navigate('/admin')}>
+        <button type="button" className="start-karte" onClick={() => navigate({ to: '/admin' })}>
           <span className="start-karte-icon" aria-hidden="true">
             🛠️
           </span>

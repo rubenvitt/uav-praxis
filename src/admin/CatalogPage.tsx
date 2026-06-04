@@ -1,6 +1,8 @@
-import { useCallback, useEffect, useState } from 'react';
+import { useState } from 'react';
+import { useSuspenseQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import type { TaskDTO, Teil } from '../../shared/types';
 import { api, ApiError, type TaskEingabe } from '../api/client';
+import { adminTasksQuery } from './queries';
 
 interface FormZustand {
   teil: Teil;
@@ -227,99 +229,106 @@ function TaskFormular({
   );
 }
 
-/** Aufgabenkatalog: Voll-CRUD und Reihenfolge (auf/ab). */
+/** Aufgabenkatalog: Voll-CRUD und Reihenfolge (auf/ab). Daten cache-first über
+ * `adminTasksQuery` (Loader prefetcht). Mutationen via `useMutation` + invalidate. */
 export function CatalogPage() {
-  const [tasks, setTasks] = useState<TaskDTO[]>([]);
-  const [laden, setLaden] = useState(true);
-  const [fehler, setFehler] = useState<string | null>(null);
-  const [aktion, setAktion] = useState(false);
+  const queryClient = useQueryClient();
+  const { data: tasks } = useSuspenseQuery(adminTasksQuery);
 
+  const [fehler, setFehler] = useState<string | null>(null);
   const [neuOffen, setNeuOffen] = useState(false);
   const [neu, setNeu] = useState<FormZustand>(LEER);
   const [bearbeiteId, setBearbeiteId] = useState<string | null>(null);
   const [bearbeite, setBearbeite] = useState<FormZustand>(LEER);
 
-  const ladeTasks = useCallback(async () => {
-    try {
-      setTasks(await api.adminGetTasks());
-      setFehler(null);
-    } catch (e) {
-      setFehler(e instanceof ApiError ? e.message : 'Aufgaben konnten nicht geladen werden.');
-    } finally {
-      setLaden(false);
-    }
-  }, []);
+  const tasksInvalidieren = () =>
+    queryClient.invalidateQueries({ queryKey: adminTasksQuery.queryKey });
 
-  useEffect(() => {
-    void (async () => {
-      await ladeTasks();
-    })();
-  }, [ladeTasks]);
-
-  const anlegen = async (e: React.FormEvent) => {
-    e.preventDefault();
-    setAktion(true);
-    setFehler(null);
-    try {
-      await api.adminCreateTask(eingabeAus(neu));
+  const anlegenMutation = useMutation({
+    mutationFn: (eingabe: TaskEingabe) => api.adminCreateTask(eingabe),
+    onSuccess: async () => {
       setNeu(LEER);
       setNeuOffen(false);
-      await ladeTasks();
-    } catch (err) {
+      setFehler(null);
+      await tasksInvalidieren();
+    },
+    onError: (err) => {
       setFehler(err instanceof ApiError ? err.message : 'Aufgabe konnte nicht angelegt werden.');
-    } finally {
-      setAktion(false);
-    }
+    },
+  });
+
+  const speichernMutation = useMutation({
+    mutationFn: ({ id, eingabe }: { id: string; eingabe: TaskEingabe }) =>
+      api.adminUpdateTask(id, eingabe),
+    onSuccess: async () => {
+      setBearbeiteId(null);
+      setFehler(null);
+      await tasksInvalidieren();
+    },
+    onError: (err) => {
+      setFehler(err instanceof ApiError ? err.message : 'Aufgabe konnte nicht gespeichert werden.');
+    },
+  });
+
+  const loeschenMutation = useMutation({
+    mutationFn: (id: string) => api.adminDeleteTask(id),
+    onSuccess: async () => {
+      setFehler(null);
+      await tasksInvalidieren();
+    },
+    onError: (err) => {
+      setFehler(err instanceof ApiError ? err.message : 'Aufgabe konnte nicht gelöscht werden.');
+    },
+  });
+
+  const reorderMutation = useMutation({
+    mutationFn: (ids: string[]) => api.adminReorderTasks(ids),
+    onSuccess: async () => {
+      setFehler(null);
+      await tasksInvalidieren();
+    },
+    onError: async (err) => {
+      setFehler(err instanceof ApiError ? err.message : 'Reihenfolge konnte nicht gespeichert werden.');
+      // Optimistischen Cache-Stand verwerfen, autoritative Reihenfolge nachladen.
+      await tasksInvalidieren();
+    },
+  });
+
+  const aktion =
+    anlegenMutation.isPending ||
+    speichernMutation.isPending ||
+    loeschenMutation.isPending ||
+    reorderMutation.isPending;
+
+  const anlegen = (e: React.FormEvent) => {
+    e.preventDefault();
+    setFehler(null);
+    anlegenMutation.mutate(eingabeAus(neu));
   };
 
-  const speichern = async (e: React.FormEvent) => {
+  const speichern = (e: React.FormEvent) => {
     e.preventDefault();
     if (!bearbeiteId) return;
-    setAktion(true);
     setFehler(null);
-    try {
-      await api.adminUpdateTask(bearbeiteId, eingabeAus(bearbeite));
-      setBearbeiteId(null);
-      await ladeTasks();
-    } catch (err) {
-      setFehler(err instanceof ApiError ? err.message : 'Aufgabe konnte nicht gespeichert werden.');
-    } finally {
-      setAktion(false);
-    }
+    speichernMutation.mutate({ id: bearbeiteId, eingabe: eingabeAus(bearbeite) });
   };
 
-  const loeschen = async (t: TaskDTO) => {
-    if (!window.confirm(`Aufgabe „${t.nummer} ${t.titel}“ wirklich löschen?`)) return;
-    setAktion(true);
+  const loeschen = (t: TaskDTO) => {
+    if (!window.confirm(`Aufgabe „${t.nummer} ${t.titel}" wirklich löschen?`)) return;
     setFehler(null);
-    try {
-      await api.adminDeleteTask(t.id);
-      await ladeTasks();
-    } catch (err) {
-      setFehler(err instanceof ApiError ? err.message : 'Aufgabe konnte nicht gelöscht werden.');
-    } finally {
-      setAktion(false);
-    }
+    loeschenMutation.mutate(t.id);
   };
 
-  const verschieben = async (index: number, richtung: -1 | 1) => {
+  const verschieben = (index: number, richtung: -1 | 1) => {
     const ziel = index + richtung;
     if (ziel < 0 || ziel >= tasks.length) return;
     const neueReihe = [...tasks];
     const [bewegt] = neueReihe.splice(index, 1);
     neueReihe.splice(ziel, 0, bewegt);
-    setTasks(neueReihe); // optimistisch
-    setAktion(true);
+    // Optimistisch im Query-Cache setzen; bei Fehler verwirft onError per invalidate.
+    queryClient.setQueryData(adminTasksQuery.queryKey, neueReihe);
     setFehler(null);
-    try {
-      await api.adminReorderTasks(neueReihe.map((t) => t.id));
-      await ladeTasks();
-    } catch (err) {
-      setFehler(err instanceof ApiError ? err.message : 'Reihenfolge konnte nicht gespeichert werden.');
-      await ladeTasks();
-    } finally {
-      setAktion(false);
-    }
+    reorderMutation.mutate(neueReihe.map((t) => t.id));
   };
 
   return (
@@ -351,9 +360,7 @@ export function CatalogPage() {
         />
       )}
 
-      {laden ? (
-        <p className="admin-hinweis">Wird geladen …</p>
-      ) : tasks.length === 0 ? (
+      {tasks.length === 0 ? (
         <p className="admin-leer">Noch keine Aufgaben im Katalog.</p>
       ) : (
         <div className="tabelle-umbruch">
@@ -400,7 +407,7 @@ export function CatalogPage() {
                         <button
                           type="button"
                           className="btn btn-klein"
-                          onClick={() => void verschieben(i, -1)}
+                          onClick={() => verschieben(i, -1)}
                           disabled={aktion || i === 0}
                           aria-label={`${t.nummer} nach oben`}
                         >
@@ -409,7 +416,7 @@ export function CatalogPage() {
                         <button
                           type="button"
                           className="btn btn-klein"
-                          onClick={() => void verschieben(i, 1)}
+                          onClick={() => verschieben(i, 1)}
                           disabled={aktion || i === tasks.length - 1}
                           aria-label={`${t.nummer} nach unten`}
                         >
@@ -433,7 +440,7 @@ export function CatalogPage() {
                         <button
                           type="button"
                           className="btn btn-klein btn-gefahr"
-                          onClick={() => void loeschen(t)}
+                          onClick={() => loeschen(t)}
                           disabled={aktion}
                         >
                           Löschen

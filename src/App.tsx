@@ -1,17 +1,15 @@
-import { useEffect, useState } from 'react';
-import { BrowserRouter, Routes, Route } from 'react-router-dom';
+import { useEffect } from 'react';
+import { RouterProvider } from '@tanstack/react-router';
+import { QueryClientProvider } from '@tanstack/react-query';
 import { AuthProvider, useAuth } from './auth/AuthContext';
+import { LokalProvider } from './lokal/LokalContext';
 import { syncEngine } from './offline/syncEngine';
-import { TeilnehmerApp } from './pages/TeilnehmerApp';
-import { StartPage } from './pages/StartPage';
-import { LoginPage } from './pages/LoginPage';
-import { AdminApp } from './admin/AdminApp';
+import { router, queryClient } from './router';
 
 /**
  * Startet die Offline-Sync-Engine ausschließlich für eingeloggte Teilnehmer
  * (§9: anonymer Modus bleibt rein lokal, Admin synchronisiert keinen Fortschritt).
- * `start()` liefert die Stop-Funktion, die als Effekt-Cleanup bei Logout und im
- * StrictMode-Doppellauf greift.
+ * `start()` liefert die Stop-Funktion (Cleanup bei Logout / StrictMode-Doppellauf).
  */
 function SyncStarter() {
   const { identity } = useAuth();
@@ -23,45 +21,24 @@ function SyncStarter() {
 }
 
 /**
- * Startseite (/): Teilnehmer-Dashboard, sobald ein Teilnehmer eingeloggt ist oder
- * der anonyme lokale Übungsmodus gewählt wurde; andernfalls die Zugangsauswahl.
- * Während `/api/me` initial lädt, wird nichts gezeigt, damit für eingeloggte
- * Teilnehmer nicht kurz die Auswahl aufblitzt.
+ * Rendert den Router und injiziert die LIVE-Identität in den Router-Context
+ * (typisierter Lese-Zugriff in Loadern). Muss `useAuth` aufrufen → innerhalb des
+ * AuthProvider. Reexport für Tests, damit dort derselbe Pfad mit Memory-History läuft.
  */
-function HomeRoute({ lokal, onLokalStart }: { lokal: boolean; onLokalStart: () => void }) {
-  const { identity, laden } = useAuth();
-  if (identity.kind === 'participant' || lokal) return <TeilnehmerApp />;
-  if (laden) return <main className="app" aria-busy="true" />;
-  return <StartPage onLokalStart={onLokalStart} />;
-}
-
-function AppRoutes() {
-  // Session-State: Der lokale Modus überlebt Navigation (z. B. nach /aufgabe/:id
-  // und zurück), aber bewusst keinen Reload — beim Neustart erscheint wieder die
-  // Zugangsauswahl. Liegt über <Routes>, damit er nicht beim Routenwechsel verfällt.
-  const [lokal, setLokal] = useState(false);
-  return (
-    <>
-      <SyncStarter />
-      <Routes>
-        <Route
-          path="/"
-          element={<HomeRoute lokal={lokal} onLokalStart={() => setLokal(true)} />}
-        />
-        <Route path="/aufgabe/:taskId" element={<TeilnehmerApp />} />
-        <Route path="/login" element={<LoginPage />} />
-        <Route path="/admin/*" element={<AdminApp />} />
-      </Routes>
-    </>
-  );
+export function RouterMitAuth() {
+  const auth = useAuth();
+  return <RouterProvider router={router} context={{ auth }} />;
 }
 
 export default function App() {
   return (
-    <BrowserRouter>
+    <QueryClientProvider client={queryClient}>
       <AuthProvider>
-        <AppRoutes />
+        <SyncStarter />
+        <LokalProvider>
+          <RouterMitAuth />
+        </LokalProvider>
       </AuthProvider>
-    </BrowserRouter>
+    </QueryClientProvider>
   );
 }
