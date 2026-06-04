@@ -1,4 +1,4 @@
-import type { Aufgabe } from '../data/tasks';
+import type { TaskDTO } from '../../shared/types';
 import {
   type AufgabenFortschritt,
   type Durchfuehrung,
@@ -7,7 +7,7 @@ import {
 import { DurchfuehrungForm } from './DurchfuehrungForm';
 
 type Props = {
-  aufgabe: Aufgabe;
+  aufgabe: TaskDTO;
   fortschritt: AufgabenFortschritt;
   heute: string;
   onAdd: (eintrag: Omit<Durchfuehrung, 'id'>) => void;
@@ -29,13 +29,28 @@ export function TaskDetail({
 }: Props) {
   const status = aufgabenStatus(fortschritt);
   const istTeil23 = aufgabe.teil !== 1;
+  const bild = aufgabe.bildUrl ?? null;
+
+  // Alt-Text: Titel + knappe Lernziel-/Motiv-Kurzfassung (§14), auf eine kurze,
+  // gut vorlesbare Länge gekappt.
+  const motiv = aufgabe.lernziel?.trim().replace(/\s+/g, ' ') ?? '';
+  const motivKurz = motiv.length > 120 ? `${motiv.slice(0, 117).trimEnd()}…` : motiv;
+  const bildAlt = motivKurz
+    ? `Illustration zu „${aufgabe.titel}“ – ${motivKurz}`
+    : `Illustration zu „${aufgabe.titel}“`;
 
   return (
     <article className="detail">
-      <button className="zurueck" onClick={onBack}>← Übersicht</button>
-      <h2>
-        Aufgabe {aufgabe.nummer} – {aufgabe.titel}
-      </h2>
+      <button type="button" className="zurueck" onClick={onBack}>
+        ← Übersicht
+      </button>
+
+      <p className="eyebrow">Aufgabe {aufgabe.nummer}</p>
+      <h2 className="detail-titel">{aufgabe.titel}</h2>
+
+      {bild && (
+        <img className="detail-bild" src={bild} loading="lazy" alt={bildAlt} />
+      )}
 
       <ol className="schritte">
         {aufgabe.schritte.map((s, i) => (
@@ -46,19 +61,19 @@ export function TaskDetail({
       <p className="lernziel">{aufgabe.lernziel}</p>
 
       {aufgabe.durchfuehrungshinweise.length > 0 && (
-        <>
-          <h3>Durchführungshinweise</h3>
+        <section className="hinweise">
+          <h3 className="sektion-titel">Durchführungshinweise</h3>
           <ul>
             {aufgabe.durchfuehrungshinweise.map((h, i) => (
               <li key={i}>{h}</li>
             ))}
           </ul>
-        </>
+        </section>
       )}
 
       {aufgabe.sicherheitshinweise.length > 0 && (
         <div className="warnung" role="note">
-          <strong>Sicherheitshinweise</strong>
+          <strong className="warnung-titel">Sicherheitshinweise</strong>
           <ul>
             {aufgabe.sicherheitshinweise.map((h, i) => (
               <li key={i}>{h}</li>
@@ -74,19 +89,21 @@ export function TaskDetail({
             checked={fortschritt.nichtAnwendbar}
             onChange={(e) => onNichtAnwendbar(e.target.checked)}
           />
-          Nicht anwendbar (nicht mit unserem Einsatzsystem umsetzbar)
+          <span>Nicht anwendbar (nicht mit unserem Einsatzsystem umsetzbar)</span>
         </label>
       )}
 
       {!fortschritt.nichtAnwendbar && (
         <section className="erfassung">
-          <h3>
-            Durchführungen ({fortschritt.durchfuehrungen.length} / {fortschritt.zielanzahl})
-            {status === 'erledigt' && ' ✓'}
-          </h3>
+          <header className="erfassung-kopf">
+            <h3 className="sektion-titel">
+              Durchführungen {fortschritt.durchfuehrungen.length} / {fortschritt.zielanzahl}
+            </h3>
+            {status === 'erledigt' && <span className="erledigt-marke">erledigt</span>}
+          </header>
 
-          <label className="ziel">
-            Zielanzahl
+          <label className="feld ziel">
+            <span className="feld-label">Zielanzahl</span>
             <input
               type="number"
               min={1}
@@ -98,10 +115,12 @@ export function TaskDetail({
           <ul className="liste">
             {fortschritt.durchfuehrungen.map((d) => (
               <li key={d.id}>
-                <span>
+                <span className="liste-text">
                   {d.datum} · {d.drohnensteuerer || '—'} / {d.luftraumbeobachter || '—'}
                 </span>
                 <button
+                  type="button"
+                  className="loeschen"
                   onClick={() => {
                     if (window.confirm('Diese Durchführung wirklich löschen?')) onRemove(d.id);
                   }}

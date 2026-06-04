@@ -1,0 +1,37 @@
+:root {
+  color-scheme: light dark;
+
+  --akzent: #e30613;          /* Rot, nur Akzent */
+  --akzent-weich: #fff5f5;
+  --text: #16181d;
+  --text-leise: #6b7280;
+  --text-zart: #9aa0a6;
+  --linie: #ececec;
+  --flaeche: #ffffff;
+  --flaeche-2: #f7f8f9;
+  --erfolg: #16a34a;
+  --warnung: #d97706;
+  --radius: 14px;
+  --radius-s: 10px;
+  --schatten: 0 1px 2px rgba(0, 0, 0, 0.04), 0 4px 16px rgba(0, 0, 0, 0.05);
+  --space: 16px;
+  --font: system-ui, -apple-system, "Segoe UI", Roboto, sans-serif;
+}
+
+/* Automatischer Dark Mode: folgt der System-Einstellung.
+   Überschreibt nur die Farb-Variablen, alle Komponenten erben sie. */
+@media (prefers-color-scheme: dark) {
+  :root {
+    --akzent: #ff4d57;        /* Rot leicht aufgehellt für Lesbarkeit auf Dunkel */
+    --akzent-weich: #2a1417;
+    --text: #e8e9ec;
+    --text-leise: #a1a7b0;
+    --text-zart: #71777f;
+    --linie: #2e3138;
+    --flaeche: #1a1c20;
+    --flaeche-2: #25282e;
+    --erfolg: #22c55e;
+    --warnung: #f59e0b;
+    --schatten: 0 1px 2px rgba(0, 0, 0, 0.3), 0 4px 16px rgba(0, 0, 0, 0.45);
+  }
+}

@@ -1,10 +1,14 @@
-import { useCallback } from 'react';
+import { useCallback, useEffect, useMemo, useRef } from 'react';
+import type { TaskDTO } from '../../shared/types';
 import { AUFGABEN } from '../data/tasks';
+import { useAuthOptional } from '../auth/AuthContext';
 import {
   type AufgabenFortschritt,
   type Durchfuehrung,
   leererFortschritt,
 } from '../domain/progress';
+import { localStore } from '../offline/localStore';
+import { syncEngine } from '../offline/syncEngine';
 import { useLocalStorage } from './useLocalStorage';
 
 const STORAGE_KEY = 'drk-drohnen-fortschritt';
@@ -35,55 +39,238 @@ function neueId(): string {
   return crypto.randomUUID();
 }
 
-export function useFortschritt() {
+function jetztIso(): string {
+  return new Date().toISOString();
+}
+
+// Stabiler Epoch-Zeitstempel für die einmalige Übernahme anonymer TaskStatus.
+// Begründung (§9, last-write-wins): Der Server wendet TaskStatus strikt per
+// `excluded.updated_at > task_status.updated_at` an und fügt nur dann ein neues
+// Status-Row ein, wenn noch keines existiert. Mit einem Epoch-Stempel verliert
+// die Übernahme JEDEN Konflikt gegen einen vorhandenen Server-Wert (= kein
+// stilles Überschreiben von Werten anderer Geräte), füllt aber Lücken auf einem
+// frischen Server-Konto. Echte spätere Änderungen tragen `jetztIso()` und
+// schlagen den Epoch-Stempel zuverlässig (selbstkorrigierend).
+const EPOCH_ISO = '1970-01-01T00:00:00.000Z';
+
+// Default-Zielanzahl je Aufgabe aus dem (übergebenen) Katalog.
+function zielDefaultsAus(katalog: TaskDTO[]): Record<string, number> {
+  return Object.fromEntries(katalog.map((t) => [t.id, Math.max(1, t.zielanzahlDefault)]));
+}
+
+// Weicht der lokale TaskStatus vom Katalog-Default ab? Nur dann lohnt die Übernahme.
+function statusWeichtAb(
+  taskId: string,
+  f: AufgabenFortschritt,
+  zielDefaults: Record<string, number>,
+): boolean {
+  return f.nichtAnwendbar || f.zielanzahl !== (zielDefaults[taskId] ?? 1);
+}
+
+export function useFortschritt(katalog: TaskDTO[]) {
   const [state, setState, speicherfehler] = useLocalStorage<AppState>(STORAGE_KEY, initialerState());
   // Nur ältere Stände migrieren; einen unbekannten höheren Schema-Stand defensiv NICHT überschreiben.
   const sicher = state.schemaVersion < SCHEMA_VERSION ? migrieren(state) : state;
 
+  // Garantiert synchron für jede Katalog-Aufgabe einen Fortschritt-Eintrag —
+  // ohne auf den Merge-Effekt unten zu warten. Verhindert Render-Lücken
+  // (undefined) in der Übersicht, falls der DB-Katalog Aufgaben enthält, die der
+  // lokale Stand noch nicht kennt (frisch vom Admin angelegt).
+  const fortschritt = useMemo(() => {
+    const fehlend = katalog.filter((t) => !sicher.fortschritt[t.id]);
+    if (fehlend.length === 0) return sicher.fortschritt;
+    const map = { ...sicher.fortschritt };
+    for (const t of fehlend) map[t.id] = leererFortschritt(t.zielanzahlDefault);
+    return map;
+  }, [sicher.fortschritt, katalog]);
+
+  // Optionaler Auth-Kontext: ohne Provider (z. B. in bestehenden Tests) ist das
+  // `null` → rein lokaler Modus, kein Sync. Mit eingeloggtem Teilnehmer werden
+  // Schreibvorgänge zusätzlich in die Sync-Queue gespiegelt.
+  const auth = useAuthOptional();
+  const eingeloggterTeilnehmer = auth?.identity.kind === 'participant';
+
+  // Aktuellen Stand für Event-Handler/Effekte ohne Stale-Closure halten.
+  // (Aktualisierung im Effekt, nicht während des Renderns.)
+  const stateRef = useRef(sicher);
+  useEffect(() => {
+    stateRef.current = sicher;
+  }, [sicher]);
+
+  // Aktuellen Katalog stale-frei für die Übernahme bereithalten (gleiches Muster).
+  const katalogRef = useRef(katalog);
+  useEffect(() => {
+    katalogRef.current = katalog;
+  }, [katalog]);
+
+  // Neue Aufgaben aus dem Katalog (z. B. vom Admin angelegt) in den persistenten
+  // Fortschritt nachziehen, damit Schreibvorgänge (`aendern`) für sie greifen.
+  // Add-only: bestehender Fortschritt bleibt erhalten — auch für Aufgaben, die im
+  // Katalog inaktiv/entfernt wurden, geht kein lokaler Stand verloren.
+  useEffect(() => {
+    const map = stateRef.current.fortschritt;
+    const fehlend = katalog.filter((t) => !map[t.id]);
+    if (fehlend.length === 0) return;
+    const next = { ...map };
+    for (const t of fehlend) next[t.id] = leererFortschritt(t.zielanzahlDefault);
+    setState({ ...stateRef.current, fortschritt: next });
+  }, [katalog, setState]);
+
+  // Server-Pull/Reconciliation (syncEngine schreibt den Fortschritt über den
+  // localStore und benachrichtigt hier) → erneut lesen und neu rendern.
+  useEffect(() => {
+    return localStore.fortschrittAbonnieren((neu) => {
+      setState(neu as AppState);
+    });
+  }, [setState]);
+
+  // Anonym → eingeloggt: lokalen Fortschritt einmalig in die Queue übernehmen
+  // und hochladen (Merge mit Server). Pro Teilnehmer genau einmal — der Marker
+  // liegt persistent im localStore, damit Reloads/Mounts den Stand nicht erneut
+  // hochladen (§9).
+  //
+  // Wichtig gegen Datenverlust geräteübergreifend:
+  //  - Executions sind additiv/idempotent (PK = client-UUID) → unbedenklich,
+  //    werden immer übernommen.
+  //  - TaskStatus wird NUR übernommen, wenn er vom Katalog-Default abweicht
+  //    (sonst kein echter Anon-Eintrag), und mit EPOCH-Zeitstempel: so verliert
+  //    er jeden Konflikt gegen einen vorhandenen Server-Wert (kein stilles
+  //    Überschreiben), füllt aber Lücken eines frischen Server-Kontos.
+  useEffect(() => {
+    if (auth?.identity.kind !== 'participant') return;
+    const teilnehmerId = auth.identity.id;
+    if (localStore.uebernommenGesetzt(teilnehmerId)) return;
+    localStore.uebernommenMarkieren(teilnehmerId);
+
+    const zielDefaults = zielDefaultsAus(katalogRef.current);
+    const aktuell = stateRef.current.fortschritt;
+    for (const [taskId, f] of Object.entries(aktuell)) {
+      for (const d of f.durchfuehrungen) {
+        localStore.queueAnfuegen({
+          art: 'execution',
+          daten: {
+            id: d.id,
+            taskId,
+            datum: d.datum,
+            drohnensteuerer: d.drohnensteuerer,
+            luftraumbeobachter: d.luftraumbeobachter,
+            deletedAt: null,
+          },
+        });
+      }
+      if (statusWeichtAb(taskId, f, zielDefaults)) {
+        localStore.queueAnfuegen({
+          art: 'taskStatus',
+          daten: {
+            taskId,
+            zielanzahl: f.zielanzahl,
+            nichtAnwendbar: f.nichtAnwendbar,
+            updatedAt: EPOCH_ISO,
+          },
+        });
+      }
+    }
+    syncEngine.mutationGemeldet();
+  }, [auth?.identity]);
+
+  // Spiegelt eine Execution-Mutation (Upsert/Tombstone) in die Queue + triggert Sync.
+  const execMutation = useCallback(
+    (taskId: string, d: Durchfuehrung, geloescht: boolean) => {
+      if (!eingeloggterTeilnehmer) return;
+      localStore.queueAnfuegen({
+        art: 'execution',
+        daten: {
+          id: d.id,
+          taskId,
+          datum: d.datum,
+          drohnensteuerer: d.drohnensteuerer,
+          luftraumbeobachter: d.luftraumbeobachter,
+          deletedAt: geloescht ? jetztIso() : null,
+        },
+      });
+      syncEngine.mutationGemeldet();
+    },
+    [eingeloggterTeilnehmer],
+  );
+
+  // Spiegelt eine TaskStatus-Mutation (Zielanzahl/nicht-anwendbar) in die Queue.
+  const statusMutation = useCallback(
+    (taskId: string, f: AufgabenFortschritt) => {
+      if (!eingeloggterTeilnehmer) return;
+      localStore.queueAnfuegen({
+        art: 'taskStatus',
+        daten: {
+          taskId,
+          zielanzahl: f.zielanzahl,
+          nichtAnwendbar: f.nichtAnwendbar,
+          updatedAt: jetztIso(),
+        },
+      });
+      syncEngine.mutationGemeldet();
+    },
+    [eingeloggterTeilnehmer],
+  );
+
   const aendern = useCallback(
     (id: string, fn: (f: AufgabenFortschritt) => AufgabenFortschritt) => {
-      const vorher = sicher.fortschritt[id];
-      if (!vorher) return;
+      const vorher = stateRef.current.fortschritt[id];
+      if (!vorher) return vorher;
+      const nachher = fn(vorher);
       setState({
-        ...sicher,
-        fortschritt: { ...sicher.fortschritt, [id]: fn(vorher) },
+        ...stateRef.current,
+        fortschritt: { ...stateRef.current.fortschritt, [id]: nachher },
       });
+      return nachher;
     },
-    [sicher, setState],
+    [setState],
   );
 
   const durchfuehrungHinzufuegen = useCallback(
-    (id: string, eintrag: Omit<Durchfuehrung, 'id'>) =>
-      aendern(id, (f) => ({
-        ...f,
-        durchfuehrungen: [...f.durchfuehrungen, { ...eintrag, id: neueId() }],
-      })),
-    [aendern],
+    (id: string, eintrag: Omit<Durchfuehrung, 'id'>) => {
+      const neu: Durchfuehrung = { ...eintrag, id: neueId() };
+      aendern(id, (f) => ({ ...f, durchfuehrungen: [...f.durchfuehrungen, neu] }));
+      execMutation(id, neu, false);
+    },
+    [aendern, execMutation],
   );
 
   const durchfuehrungEntfernen = useCallback(
-    (id: string, eintragId: string) =>
+    (id: string, eintragId: string) => {
+      // Eintrag vor dem Entfernen erfassen, um Tombstone (mit Original-ID) zu bilden.
+      const entfernt = stateRef.current.fortschritt[id]?.durchfuehrungen.find(
+        (d) => d.id === eintragId,
+      );
       aendern(id, (f) => ({
         ...f,
         durchfuehrungen: f.durchfuehrungen.filter((d) => d.id !== eintragId),
-      })),
-    [aendern],
+      }));
+      if (entfernt) execMutation(id, entfernt, true);
+    },
+    [aendern, execMutation],
   );
 
   const zielanzahlSetzen = useCallback(
-    (id: string, ziel: number) =>
-      aendern(id, (f) => ({ ...f, zielanzahl: Math.max(1, Math.floor(ziel) || 1) })),
-    [aendern],
+    (id: string, ziel: number) => {
+      const nachher = aendern(id, (f) => ({
+        ...f,
+        zielanzahl: Math.max(1, Math.floor(ziel) || 1),
+      }));
+      if (nachher) statusMutation(id, nachher);
+    },
+    [aendern, statusMutation],
   );
 
   const nichtAnwendbarSetzen = useCallback(
-    (id: string, wert: boolean) => aendern(id, (f) => ({ ...f, nichtAnwendbar: wert })),
-    [aendern],
+    (id: string, wert: boolean) => {
+      const nachher = aendern(id, (f) => ({ ...f, nichtAnwendbar: wert }));
+      if (nachher) statusMutation(id, nachher);
+    },
+    [aendern, statusMutation],
   );
 
   return {
     speicherfehler,
-    fortschritt: sicher.fortschritt,
+    fortschritt,
     durchfuehrungHinzufuegen,
     durchfuehrungEntfernen,
     zielanzahlSetzen,

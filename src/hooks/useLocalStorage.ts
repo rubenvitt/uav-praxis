@@ -18,13 +18,18 @@ export function useLocalStorage<T>(
   const [speicherfehler, setSpeicherfehler] = useState(false);
 
   useEffect(() => {
+    let fehler = false;
     try {
       localStorage.setItem(key, JSON.stringify(wert));
-      setSpeicherfehler(false);
     } catch {
       // Storage nicht verfügbar/voll: State bleibt im Speicher nutzbar.
-      setSpeicherfehler(true);
+      fehler = true;
     }
+    // localStorage ist ein externes System; ob das Schreiben gelingt, lässt sich
+    // erst nach dem Versuch (auch beim Mount) feststellen und wird hier als
+    // Status zurückgemeldet. Der funktionale Update verhindert Extra-Renders.
+    // eslint-disable-next-line react-hooks/set-state-in-effect
+    setSpeicherfehler((vorher) => (vorher === fehler ? vorher : fehler));
   }, [key, wert]);
 
   const setzen = useCallback((next: T) => setWert(next), []);
