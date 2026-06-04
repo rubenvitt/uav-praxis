@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useState } from 'react';
-import { Link, useNavigate, useParams } from 'react-router-dom';
+import { Link, useNavigate } from '@tanstack/react-router';
 import type { ParticipantDetailDTO, Teil } from '../../shared/types';
 import { api, ApiError } from '../api/client';
 
@@ -21,8 +21,7 @@ const TEIL_TITEL: Record<Teil, string> = {
 
 /** Detail-Auswertung eines Teilnehmers: Quoten je Teil, Aufgaben-Aufschlüsselung,
  * Stammdaten bearbeiten, Code/Link, Detail-CSV-Export. */
-export function ParticipantDetailPage() {
-  const { participantId } = useParams<{ participantId: string }>();
+export function ParticipantDetailPage({ participantId }: { participantId: string }) {
   const navigate = useNavigate();
 
   const [detail, setDetail] = useState<ParticipantDetailDTO | null>(null);
@@ -104,7 +103,7 @@ export function ParticipantDetailPage() {
     setFehler(null);
     try {
       await api.adminDeleteParticipant(participantId);
-      navigate('/admin/participants');
+      navigate({ to: '/admin/participants' });
     } catch (err) {
       setFehler(err instanceof ApiError ? err.message : 'Löschen fehlgeschlagen.');
       setAktion(false);
@@ -124,10 +123,6 @@ export function ParticipantDetailPage() {
       window.prompt('Zum Kopieren markieren:', text);
     }
   };
-
-  if (!participantId) {
-    return <p className="admin-fehler">Kein Teilnehmer ausgewählt.</p>;
-  }
 
   return (
     <div>

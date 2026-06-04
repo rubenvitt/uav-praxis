@@ -2,11 +2,12 @@
  * Teilnehmer-Login: Code-Eingabe und Magic-Link-Verarbeitung (/login?code=XXXX).
  *
  * - Großes Code-Eingabefeld (Großschreibung, einfache Validierung) → useAuth().loginMitCode.
- * - Magic-Link: liest `?code` aus der URL, meldet automatisch an, entfernt den Code via
- *   history.replaceState aus der URL und leitet bei Erfolg nach „/". Ungültiger Code → Fehler.
+ * - Magic-Link: erhält `code` typsicher als Prop aus der Route (validateSearch), meldet
+ *   automatisch an, entfernt den Code typsicher über den Router aus der URL und leitet
+ *   bei Erfolg nach „/". Ungültiger Code → Fehler aus dem AuthContext.
  */
 import { useEffect, useRef, useState, type FormEvent } from 'react';
-import { useNavigate, useSearchParams } from 'react-router-dom';
+import { useNavigate } from '@tanstack/react-router';
 import { useAuth } from '../auth/AuthContext';
 
 /** Vereinheitlicht die Code-Darstellung (Großschreibung, ohne Randleerzeichen). */
@@ -14,39 +15,32 @@ function codeNormalisieren(roh: string): string {
   return roh.trim().toUpperCase();
 }
 
-export function LoginPage() {
+export function LoginPage({ code: codeAusUrl }: { code?: string }) {
   const { laden, fehler, loginMitCode } = useAuth();
   const navigate = useNavigate();
-  const [suchParams] = useSearchParams();
   const [code, setCode] = useState('');
   const magicVerarbeitet = useRef(false);
 
-  // Magic-Link: Code aus der URL lesen, automatisch anmelden, Code aus der URL
-  // entfernen und bei Erfolg weiterleiten. Der useRef-Wächter verhindert doppeltes
-  // Auslösen (React-StrictMode ruft Effekte im Dev doppelt auf).
+  // Magic-Link: Code aus der URL anmelden, Code typsicher aus der URL entfernen
+  // (navigate hält die Router-Location konsistent — KEIN history.replaceState) und
+  // bei Erfolg weiterleiten. Der useRef-Wächter verhindert doppeltes Auslösen.
   useEffect(() => {
     if (magicVerarbeitet.current) return;
-    const ausUrl = suchParams.get('code');
-    if (!ausUrl) return;
+    if (!codeAusUrl) return;
     magicVerarbeitet.current = true;
 
-    const codeAusUrl = codeNormalisieren(ausUrl);
-
-    // Code aus der sichtbaren URL entfernen (nicht im Verlauf/Teilen-Dialog hinterlassen).
-    if (typeof window !== 'undefined' && window.history?.replaceState) {
-      window.history.replaceState(window.history.state, '', window.location.pathname);
-    }
+    const codeNormalisiert = codeNormalisieren(codeAusUrl);
+    void navigate({ to: '/login', search: {}, replace: true });
 
     void (async () => {
       try {
-        await loginMitCode(codeAusUrl);
-        navigate('/', { replace: true });
+        await loginMitCode(codeNormalisiert);
+        await navigate({ to: '/', replace: true });
       } catch {
-        // Fehlermeldung kommt aus dem AuthContext (`fehler`); hier nur schlucken,
-        // damit keine unbehandelte Rejection entsteht.
+        // Fehlermeldung kommt aus dem AuthContext (`fehler`); hier nur schlucken.
       }
     })();
-  }, [suchParams, loginMitCode, navigate]);
+  }, [codeAusUrl, loginMitCode, navigate]);
 
   const absenden = async (e: FormEvent) => {
     e.preventDefault();
@@ -54,7 +48,7 @@ export function LoginPage() {
     if (!eingegeben) return;
     try {
       await loginMitCode(eingegeben);
-      navigate('/', { replace: true });
+      await navigate({ to: '/', replace: true });
     } catch {
       // Fehler steht in `fehler` (aus dem AuthContext) und wird unten angezeigt.
     }

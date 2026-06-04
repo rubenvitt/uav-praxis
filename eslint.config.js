@@ -19,4 +19,13 @@ export default defineConfig([
       globals: globals.browser,
     },
   },
+  {
+    // TanStack-Router-Routenmodule exportieren `Route` neben einer lokalen Routen-
+    // Komponente. react-refresh/only-export-components kann dieses Muster nicht
+    // auflösen; Fast Refresh auf Routen-Definitionsdateien ist ohnehin nicht sinnvoll.
+    files: ['src/routes/**/*.tsx'],
+    rules: {
+      'react-refresh/only-export-components': 'off',
+    },
+  },
 ])

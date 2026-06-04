@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useState } from 'react';
-import { Link } from 'react-router-dom';
+import { Link } from '@tanstack/react-router';
 import type { ParticipantProgressDTO } from '../../shared/types';
 import { api, ApiError } from '../api/client';
 
@@ -160,7 +160,9 @@ export function ParticipantsPage() {
                 return (
                   <tr key={t.id} className={t.aktiv ? undefined : 'zeile-inaktiv'}>
                     <td>
-                      <Link to={`/admin/participants/${t.id}`}>{t.name}</Link>
+                      <Link to="/admin/participants/$participantId" params={{ participantId: t.id }}>
+                        {t.name}
+                      </Link>
                     </td>
                     <td>
                       <div className="code-zelle">
