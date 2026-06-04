@@ -1,7 +1,8 @@
-import { useCallback, useEffect, useState } from 'react';
+import { useState } from 'react';
 import { Link } from '@tanstack/react-router';
-import type { ParticipantProgressDTO } from '../../shared/types';
+import { useSuspenseQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { api, ApiError } from '../api/client';
+import { participantsQuery } from './queries';
 
 function magicLink(loginCode: string): string {
   return `${window.location.origin}/login?code=${encodeURIComponent(loginCode)}`;
@@ -22,51 +23,37 @@ const LEER: NeuZustand = { name: '', beginn: '' };
 
 /**
  * Teilnehmer-Übersicht: flache Liste aller Teilnehmer mit Quote, letzter
- * Aktivität und Code/Link zum Kopieren. Anlegen direkt hier; Detailauswertung,
- * Bearbeiten/Löschen auf der Detailseite. Überblick-CSV-Export im Kopf.
+ * Aktivität und Code/Link zum Kopieren. Daten cache-first über `participantsQuery`
+ * (Loader prefetcht → kein Spinner). Anlegen via `useMutation` + invalidate.
  */
 export function ParticipantsPage() {
-  const [zeilen, setZeilen] = useState<ParticipantProgressDTO[]>([]);
-  const [laden, setLaden] = useState(true);
-  const [fehler, setFehler] = useState<string | null>(null);
+  const queryClient = useQueryClient();
+  const { data: zeilen } = useSuspenseQuery(participantsQuery);
 
   const [neu, setNeu] = useState<NeuZustand>(LEER);
   const [neuOffen, setNeuOffen] = useState(false);
-  const [aktion, setAktion] = useState(false);
+  const [fehler, setFehler] = useState<string | null>(null);
   const [kopiert, setKopiert] = useState<string | null>(null);
 
-  const laden_ = useCallback(async () => {
-    try {
-      setZeilen(await api.adminGetParticipants());
-      setFehler(null);
-    } catch (e) {
-      setFehler(e instanceof ApiError ? e.message : 'Teilnehmer konnten nicht geladen werden.');
-    } finally {
-      setLaden(false);
-    }
-  }, []);
-
-  useEffect(() => {
-    void (async () => {
-      await laden_();
-    })();
-  }, [laden_]);
-
-  const anlegen = async (e: React.FormEvent) => {
-    e.preventDefault();
-    if (!neu.name.trim()) return;
-    setAktion(true);
-    setFehler(null);
-    try {
-      await api.adminCreateParticipant({ name: neu.name.trim(), beginn: neu.beginn || null });
+  const anlegenMutation = useMutation({
+    mutationFn: (eingabe: { name: string; beginn: string | null }) =>
+      api.adminCreateParticipant(eingabe),
+    onSuccess: async () => {
       setNeu(LEER);
       setNeuOffen(false);
-      await laden_();
-    } catch (err) {
+      setFehler(null);
+      await queryClient.invalidateQueries({ queryKey: participantsQuery.queryKey });
+    },
+    onError: (err) => {
       setFehler(err instanceof ApiError ? err.message : 'Teilnehmer konnte nicht angelegt werden.');
-    } finally {
-      setAktion(false);
-    }
+    },
+  });
+
+  const anlegen = (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!neu.name.trim()) return;
+    setFehler(null);
+    anlegenMutation.mutate({ name: neu.name.trim(), beginn: neu.beginn || null });
   };
 
   const kopieren = async (text: string, markierung: string) => {
@@ -82,6 +69,8 @@ export function ParticipantsPage() {
       window.prompt('Zum Kopieren markieren:', text);
     }
   };
+
+  const aktion = anlegenMutation.isPending;
 
   return (
     <div>
@@ -136,9 +125,7 @@ export function ParticipantsPage() {
         </form>
       )}
 
-      {laden ? (
-        <p className="admin-hinweis">Wird geladen …</p>
-      ) : zeilen.length === 0 ? (
+      {zeilen.length === 0 ? (
         <p className="admin-leer">Noch keine Teilnehmer angelegt.</p>
       ) : (
         <div className="tabelle-umbruch">
