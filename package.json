@@ -8,7 +8,8 @@
     "dev:web": "vite",
     "dev:api": "tsx watch --env-file-if-exists=.env server/index.ts",
     "start": "tsx --env-file-if-exists=.env server/index.ts",
-    "build": "tsc -b && vite build",
+    "gen:routes": "tsr generate",
+    "build": "tsr generate && tsc -b && vite build",
     "gen:images": "tsx scripts/generate-illustrations.ts",
     "lint": "eslint .",
     "preview": "vite preview",
@@ -17,6 +18,8 @@
   },
   "dependencies": {
     "@hono/node-server": "^1.13.7",
+    "@tanstack/react-query": "^5.101.0",
+    "@tanstack/react-router": "^1.170.11",
     "hono": "^4.6.14",
     "openid-client": "^6.1.7",
     "react": "^19.2.6",
@@ -26,6 +29,8 @@
   },
   "devDependencies": {
     "@eslint/js": "^10.0.1",
+    "@tanstack/router-cli": "^1.167.13",
+    "@tanstack/router-plugin": "^1.168.14",
     "@testing-library/jest-dom": "^6.9.1",
     "@testing-library/react": "^16.3.2",
     "@testing-library/user-event": "^14.6.1",
