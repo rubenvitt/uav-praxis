@@ -8,6 +8,13 @@ export default defineConfig({
     react(),
     VitePWA({
       registerType: 'autoUpdate',
+      workbox: {
+        // API-Pfade NICHT auf index.html zurückfallen lassen. Sonst fängt der
+        // Service Worker echte Navigationen wie /api/auth/admin/login ab und
+        // liefert die SPA aus dem Cache, statt sie ans Backend (302 → OIDC)
+        // durchzulassen.
+        navigateFallbackDenylist: [/^\/api\//],
+      },
       manifest: {
         name: 'Drohnen-Trainingsbegleiter',
         short_name: 'Drohnen-Training',
