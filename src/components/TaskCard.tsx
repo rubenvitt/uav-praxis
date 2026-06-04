@@ -1,8 +1,8 @@
-import type { Aufgabe } from '../data/tasks';
+import type { TaskDTO } from '../../shared/types';
 import { type AufgabenFortschritt, aufgabenStatus } from '../domain/progress';
 
 type Props = {
-  aufgabe: Aufgabe;
+  aufgabe: TaskDTO;
   fortschritt: AufgabenFortschritt;
   onSelect: (id: string) => void;
 };

@@ -1,4 +1,5 @@
-import { useCallback, useEffect, useRef } from 'react';
+import { useCallback, useEffect, useMemo, useRef } from 'react';
+import type { TaskDTO } from '../../shared/types';
 import { AUFGABEN } from '../data/tasks';
 import { useAuthOptional } from '../auth/AuthContext';
 import {
@@ -52,20 +53,36 @@ function jetztIso(): string {
 // schlagen den Epoch-Stempel zuverlässig (selbstkorrigierend).
 const EPOCH_ISO = '1970-01-01T00:00:00.000Z';
 
-// Default-Zielanzahl je Aufgabe aus dem Katalog (zum Erkennen echter Abweichungen).
-const ZIEL_DEFAULTS: Record<string, number> = Object.fromEntries(
-  AUFGABEN.map((a) => [a.id, Math.max(1, a.zielanzahlDefault)]),
-);
-
-// Weicht der lokale TaskStatus vom Katalog-Default ab? Nur dann lohnt die Übernahme.
-function statusWeichtAb(taskId: string, f: AufgabenFortschritt): boolean {
-  return f.nichtAnwendbar || f.zielanzahl !== (ZIEL_DEFAULTS[taskId] ?? 1);
+// Default-Zielanzahl je Aufgabe aus dem (übergebenen) Katalog.
+function zielDefaultsAus(katalog: TaskDTO[]): Record<string, number> {
+  return Object.fromEntries(katalog.map((t) => [t.id, Math.max(1, t.zielanzahlDefault)]));
 }
 
-export function useFortschritt() {
+// Weicht der lokale TaskStatus vom Katalog-Default ab? Nur dann lohnt die Übernahme.
+function statusWeichtAb(
+  taskId: string,
+  f: AufgabenFortschritt,
+  zielDefaults: Record<string, number>,
+): boolean {
+  return f.nichtAnwendbar || f.zielanzahl !== (zielDefaults[taskId] ?? 1);
+}
+
+export function useFortschritt(katalog: TaskDTO[]) {
   const [state, setState, speicherfehler] = useLocalStorage<AppState>(STORAGE_KEY, initialerState());
   // Nur ältere Stände migrieren; einen unbekannten höheren Schema-Stand defensiv NICHT überschreiben.
   const sicher = state.schemaVersion < SCHEMA_VERSION ? migrieren(state) : state;
+
+  // Garantiert synchron für jede Katalog-Aufgabe einen Fortschritt-Eintrag —
+  // ohne auf den Merge-Effekt unten zu warten. Verhindert Render-Lücken
+  // (undefined) in der Übersicht, falls der DB-Katalog Aufgaben enthält, die der
+  // lokale Stand noch nicht kennt (frisch vom Admin angelegt).
+  const fortschritt = useMemo(() => {
+    const fehlend = katalog.filter((t) => !sicher.fortschritt[t.id]);
+    if (fehlend.length === 0) return sicher.fortschritt;
+    const map = { ...sicher.fortschritt };
+    for (const t of fehlend) map[t.id] = leererFortschritt(t.zielanzahlDefault);
+    return map;
+  }, [sicher.fortschritt, katalog]);
 
   // Optionaler Auth-Kontext: ohne Provider (z. B. in bestehenden Tests) ist das
   // `null` → rein lokaler Modus, kein Sync. Mit eingeloggtem Teilnehmer werden
@@ -79,6 +96,25 @@ export function useFortschritt() {
   useEffect(() => {
     stateRef.current = sicher;
   }, [sicher]);
+
+  // Aktuellen Katalog stale-frei für die Übernahme bereithalten (gleiches Muster).
+  const katalogRef = useRef(katalog);
+  useEffect(() => {
+    katalogRef.current = katalog;
+  }, [katalog]);
+
+  // Neue Aufgaben aus dem Katalog (z. B. vom Admin angelegt) in den persistenten
+  // Fortschritt nachziehen, damit Schreibvorgänge (`aendern`) für sie greifen.
+  // Add-only: bestehender Fortschritt bleibt erhalten — auch für Aufgaben, die im
+  // Katalog inaktiv/entfernt wurden, geht kein lokaler Stand verloren.
+  useEffect(() => {
+    const map = stateRef.current.fortschritt;
+    const fehlend = katalog.filter((t) => !map[t.id]);
+    if (fehlend.length === 0) return;
+    const next = { ...map };
+    for (const t of fehlend) next[t.id] = leererFortschritt(t.zielanzahlDefault);
+    setState({ ...stateRef.current, fortschritt: next });
+  }, [katalog, setState]);
 
   // Server-Pull/Reconciliation (syncEngine schreibt den Fortschritt über den
   // localStore und benachrichtigt hier) → erneut lesen und neu rendern.
@@ -106,6 +142,7 @@ export function useFortschritt() {
     if (localStore.uebernommenGesetzt(teilnehmerId)) return;
     localStore.uebernommenMarkieren(teilnehmerId);
 
+    const zielDefaults = zielDefaultsAus(katalogRef.current);
     const aktuell = stateRef.current.fortschritt;
     for (const [taskId, f] of Object.entries(aktuell)) {
       for (const d of f.durchfuehrungen) {
@@ -121,7 +158,7 @@ export function useFortschritt() {
           },
         });
       }
-      if (statusWeichtAb(taskId, f)) {
+      if (statusWeichtAb(taskId, f, zielDefaults)) {
         localStore.queueAnfuegen({
           art: 'taskStatus',
           daten: {
@@ -233,7 +270,7 @@ export function useFortschritt() {
 
   return {
     speicherfehler,
-    fortschritt: sicher.fortschritt,
+    fortschritt,
     durchfuehrungHinzufuegen,
     durchfuehrungEntfernen,
     zielanzahlSetzen,

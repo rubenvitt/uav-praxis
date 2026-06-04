@@ -1,9 +1,9 @@
 import { useEffect, useMemo, useState } from 'react';
 import { useNavigate, useParams } from 'react-router-dom';
-import { AUFGABEN } from '../data/tasks';
 import { Dashboard } from '../components/Dashboard';
 import { TaskDetail } from '../components/TaskDetail';
 import { useFortschritt } from '../hooks/useFortschritt';
+import { useKatalog } from '../hooks/useKatalog';
 import { syncEngine, type SyncStatus } from '../offline/syncEngine';
 
 const STATUS_TEXT: Record<SyncStatus, string> = {
@@ -29,6 +29,7 @@ export function TeilnehmerApp() {
   const navigate = useNavigate();
   const { taskId } = useParams<{ taskId: string }>();
   const aktiv = taskId ?? null;
+  const katalog = useKatalog();
   const {
     speicherfehler,
     fortschritt,
@@ -36,10 +37,10 @@ export function TeilnehmerApp() {
     durchfuehrungEntfernen,
     zielanzahlSetzen,
     nichtAnwendbarSetzen,
-  } = useFortschritt();
+  } = useFortschritt(katalog);
 
   const heute = useMemo(() => new Date().toISOString().slice(0, 10), []);
-  const aufgabe = aktiv ? AUFGABEN.find((a) => a.id === aktiv) ?? null : null;
+  const aufgabe = aktiv ? katalog.find((a) => a.id === aktiv) ?? null : null;
 
   // Unbekannte Aufgaben-ID in der URL (z. B. veralteter Deep-Link) → zurück zum
   // Dashboard, ohne einen zusätzlichen History-Eintrag zu erzeugen.
@@ -61,7 +62,7 @@ export function TeilnehmerApp() {
 
       {aufgabe ? (
         <TaskDetail
-          aufgabe={{ ...aufgabe, bildUrl: `/illustrations/${aufgabe.id}.webp` }}
+          aufgabe={aufgabe}
           fortschritt={fortschritt[aufgabe.id]}
           heute={heute}
           onAdd={(e) => durchfuehrungHinzufuegen(aufgabe.id, e)}
@@ -71,7 +72,11 @@ export function TeilnehmerApp() {
           onBack={() => navigate('/')}
         />
       ) : (
-        <Dashboard fortschritt={fortschritt} onSelect={(id) => navigate(`/aufgabe/${id}`)} />
+        <Dashboard
+          katalog={katalog}
+          fortschritt={fortschritt}
+          onSelect={(id) => navigate(`/aufgabe/${id}`)}
+        />
       )}
 
       <SyncIndikator />

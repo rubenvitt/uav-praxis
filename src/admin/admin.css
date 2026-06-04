@@ -404,6 +404,143 @@
   opacity: 0.55;
 }
 
+/* Teilnehmer-Detail: Kennzahlen-Kopf */
+.tn-kopf {
+  display: flex;
+  align-items: center;
+  gap: 28px;
+  flex-wrap: wrap;
+}
+.tn-kennzahl {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  min-width: 120px;
+}
+.tn-kennzahl-wert {
+  font-size: 2.4rem;
+  font-weight: 700;
+  line-height: 1;
+  color: var(--akzent);
+  font-variant-numeric: tabular-nums;
+}
+.tn-kennzahl-label {
+  font-size: 0.8rem;
+  color: var(--text-leise);
+  margin-top: 6px;
+  text-align: center;
+}
+.tn-meta {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(150px, 1fr));
+  gap: 14px 24px;
+  margin: 0;
+  flex: 1;
+}
+.tn-meta > div {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+.tn-meta dt {
+  font-size: 0.74rem;
+  text-transform: uppercase;
+  letter-spacing: 0.06em;
+  color: var(--text-zart);
+  font-weight: 600;
+}
+.tn-meta dd {
+  margin: 0;
+  font-size: 0.92rem;
+}
+
+/* Teilnehmer-Detail: Balken je Teil */
+.teil-balken-liste {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+}
+.teil-balken {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+}
+.teil-balken-label {
+  flex: 0 0 70px;
+  font-size: 0.88rem;
+  font-weight: 600;
+}
+.teil-balken .quote-balken {
+  height: 10px;
+}
+.teil-balken-zahl {
+  flex: 0 0 100px;
+  text-align: right;
+  font-size: 0.85rem;
+  color: var(--text-leise);
+  font-variant-numeric: tabular-nums;
+}
+
+/* Teilnehmer-Detail: Aufgaben-Aufschlüsselung */
+.aufgaben-gruppe + .aufgaben-gruppe {
+  margin-top: 18px;
+}
+.aufgaben-gruppe-titel {
+  font-size: 0.78rem;
+  text-transform: uppercase;
+  letter-spacing: 0.06em;
+  color: var(--text-zart);
+  margin: 0 0 8px;
+}
+.aufgaben-liste {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: flex;
+  flex-direction: column;
+}
+.aufgabe-zeile {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  padding: 9px 4px;
+  border-bottom: 1px solid var(--linie);
+}
+.aufgabe-zeile:last-child {
+  border-bottom: none;
+}
+.aufgabe-marker {
+  flex: 0 0 20px;
+  text-align: center;
+  font-weight: 700;
+  color: var(--text-zart);
+}
+.aufgabe-zeile.erledigt .aufgabe-marker {
+  color: var(--erfolg, #1a8c3a);
+}
+.aufgabe-zeile:not(.erledigt):not(.nicht-anwendbar) .aufgabe-marker {
+  color: var(--akzent);
+}
+.aufgabe-name {
+  flex: 1;
+  font-size: 0.92rem;
+}
+.aufgabe-nummer {
+  font-variant-numeric: tabular-nums;
+  color: var(--text-leise);
+  font-weight: 600;
+  margin-right: 4px;
+}
+.aufgabe-zahl {
+  flex: 0 0 auto;
+  font-size: 0.85rem;
+  color: var(--text-leise);
+  font-variant-numeric: tabular-nums;
+}
+.aufgabe-zeile.nicht-anwendbar {
+  opacity: 0.6;
+}
+
 /* Ladeanzeige */
 .admin-laden {
   min-height: 100vh;

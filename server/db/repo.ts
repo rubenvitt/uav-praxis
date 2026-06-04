@@ -1,13 +1,16 @@
 import { randomUUID } from 'node:crypto';
 import type {
-  CourseDTO,
   ExecutionDTO,
+  ParticipantDetailDTO,
   ParticipantDTO,
   ParticipantProgressDTO,
   ProgressSnapshot,
   SyncRequest,
   TaskDTO,
+  TaskProgressDTO,
   TaskStatusDTO,
+  Teil,
+  TeilStatDTO,
 } from '../../shared/types.ts';
 import { getDb } from './client.ts';
 import { loginCodeErzeugen } from '../auth/codes.ts';
@@ -30,21 +33,12 @@ interface TaskRow {
   updated_at: string;
 }
 
-interface CourseRow {
-  id: string;
-  name: string;
-  beschreibung: string | null;
-  beginn: string | null;
-  archiviert: number;
-  teilnehmer_anzahl?: number;
-}
-
 interface ParticipantRow {
   id: string;
-  course_id: string;
   name: string;
   login_code: string;
   aktiv: number;
+  beginn: string | null;
   last_seen: string | null;
 }
 
@@ -98,24 +92,13 @@ function mapTask(r: TaskRow): TaskDTO {
   };
 }
 
-function mapCourse(r: CourseRow): CourseDTO {
-  return {
-    id: r.id,
-    name: r.name,
-    beschreibung: r.beschreibung,
-    beginn: r.beginn,
-    archiviert: r.archiviert === 1,
-    teilnehmerAnzahl: r.teilnehmer_anzahl,
-  };
-}
-
 function mapParticipant(r: ParticipantRow): ParticipantDTO {
   return {
     id: r.id,
-    courseId: r.course_id,
     name: r.name,
     loginCode: r.login_code,
     aktiv: r.aktiv === 1,
+    beginn: r.beginn,
     lastSeen: r.last_seen,
   };
 }
@@ -162,7 +145,7 @@ export const repo = {
     return r ? mapTask(r) : null;
   },
 
-  taskAnlegen(task: Omit<TaskDTO, 'id'> & { id?: string }): TaskDTO {
+  taskAnlegen(task: Omit<TaskDTO, 'id' | 'sortOrder'> & { id?: string; sortOrder?: number }): TaskDTO {
     const db = getDb();
     const id = task.id ?? randomUUID();
     const maxSort = (
@@ -174,10 +157,10 @@ export const repo = {
     db.prepare(
       `INSERT INTO tasks
         (id, teil, nummer, titel, lernziel, schritte, durchfuehrungshinweise,
-         sicherheitshinweise, zielanzahl_default, sort_order, aktiv, updated_at)
+         sicherheitshinweise, zielanzahl_default, sort_order, aktiv, bild, updated_at)
        VALUES (@id, @teil, @nummer, @titel, @lernziel, @schritte,
          @durchfuehrungshinweise, @sicherheitshinweise, @zielanzahl_default,
-         @sort_order, @aktiv, @updated_at)`,
+         @sort_order, @aktiv, @bild, @updated_at)`,
     ).run({
       id,
       teil: task.teil,
@@ -190,6 +173,7 @@ export const repo = {
       zielanzahl_default: task.zielanzahlDefault ?? 1,
       sort_order: sortOrder,
       aktiv: task.aktiv === false ? 0 : 1,
+      bild: task.bildUrl ?? null,
       updated_at: jetzt(),
     });
     return this.taskById(id)!;
@@ -210,7 +194,7 @@ export const repo = {
          schritte = @schritte, durchfuehrungshinweise = @durchfuehrungshinweise,
          sicherheitshinweise = @sicherheitshinweise,
          zielanzahl_default = @zielanzahl_default, sort_order = @sort_order,
-         aktiv = @aktiv, updated_at = @updated_at
+         aktiv = @aktiv, bild = @bild, updated_at = @updated_at
        WHERE id = @id`,
     ).run({
       id,
@@ -224,6 +208,7 @@ export const repo = {
       zielanzahl_default: next.zielanzahlDefault ?? 1,
       sort_order: next.sortOrder ?? 0,
       aktiv: next.aktiv === false ? 0 : 1,
+      bild: next.bildUrl ?? null,
       updated_at: jetzt(),
     });
     return this.taskById(id)!;
@@ -244,84 +229,12 @@ export const repo = {
     tx(ids);
   },
 
-  // ── Kurse ────────────────────────────────────────────────────────────────
-
-  alleKurse(): CourseDTO[] {
-    const db = getDb();
-    const rows = db
-      .prepare(
-        `SELECT c.*,
-                (SELECT COUNT(*) FROM participants p WHERE p.course_id = c.id)
-                  AS teilnehmer_anzahl
-         FROM courses c
-         ORDER BY c.archiviert, c.created_at DESC`,
-      )
-      .all() as CourseRow[];
-    return rows.map(mapCourse);
-  },
-
-  kursById(id: string): CourseDTO | null {
-    const r = getDb()
-      .prepare(
-        `SELECT c.*,
-                (SELECT COUNT(*) FROM participants p WHERE p.course_id = c.id)
-                  AS teilnehmer_anzahl
-         FROM courses c WHERE c.id = ?`,
-      )
-      .get(id) as CourseRow | undefined;
-    return r ? mapCourse(r) : null;
-  },
-
-  kursAnlegen(
-    kurs: Partial<CourseDTO> & { name: string },
-    adminId: string | null,
-  ): CourseDTO {
-    const db = getDb();
-    const id = randomUUID();
-    db.prepare(
-      `INSERT INTO courses (id, name, beschreibung, beginn, archiviert, created_by, created_at)
-       VALUES (@id, @name, @beschreibung, @beginn, @archiviert, @created_by, @created_at)`,
-    ).run({
-      id,
-      name: kurs.name,
-      beschreibung: kurs.beschreibung ?? null,
-      beginn: kurs.beginn ?? null,
-      archiviert: kurs.archiviert ? 1 : 0,
-      created_by: adminId,
-      created_at: jetzt(),
-    });
-    return this.kursById(id)!;
-  },
-
-  kursAendern(id: string, patch: Partial<CourseDTO>): CourseDTO {
-    const db = getDb();
-    const vorhanden = this.kursById(id);
-    if (!vorhanden) throw new NotFound('Kurs nicht gefunden');
-    const next = { ...vorhanden, ...patch };
-    db.prepare(
-      `UPDATE courses SET name = @name, beschreibung = @beschreibung,
-         beginn = @beginn, archiviert = @archiviert WHERE id = @id`,
-    ).run({
-      id,
-      name: next.name,
-      beschreibung: next.beschreibung ?? null,
-      beginn: next.beginn ?? null,
-      archiviert: next.archiviert ? 1 : 0,
-    });
-    return this.kursById(id)!;
-  },
-
-  kursLoeschen(id: string): void {
-    const info = getDb().prepare(`DELETE FROM courses WHERE id = ?`).run(id);
-    if (info.changes === 0) throw new NotFound('Kurs nicht gefunden');
-  },
-
   // ── Teilnehmer ───────────────────────────────────────────────────────────
 
-  teilnehmerDesKurses(courseId: string): ParticipantDTO[] {
+  alleTeilnehmer(): ParticipantDTO[] {
     const rows = getDb()
-      .prepare(`SELECT * FROM participants WHERE course_id = ? ORDER BY name`)
-      .all(courseId) as ParticipantRow[];
+      .prepare(`SELECT * FROM participants ORDER BY aktiv DESC, name`)
+      .all() as ParticipantRow[];
     return rows.map(mapParticipant);
   },
 
@@ -332,16 +245,14 @@ export const repo = {
     return r ? mapParticipant(r) : null;
   },
 
-  teilnehmerAnlegen(courseId: string, name: string): ParticipantDTO {
+  teilnehmerAnlegen(name: string, beginn: string | null = null): ParticipantDTO {
     const db = getDb();
-    const kurs = this.kursById(courseId);
-    if (!kurs) throw new NotFound('Kurs nicht gefunden');
     const id = randomUUID();
     const code = this.eindeutigenCodeErzeugen();
     db.prepare(
-      `INSERT INTO participants (id, course_id, name, login_code, aktiv, created_at)
-       VALUES (?, ?, ?, ?, 1, ?)`,
-    ).run(id, courseId, name, code, jetzt());
+      `INSERT INTO participants (id, name, login_code, aktiv, beginn, created_at)
+       VALUES (?, ?, ?, 1, ?, ?)`,
+    ).run(id, name, code, beginn, jetzt());
     return this.teilnehmerById(id)!;
   },
 
@@ -355,12 +266,14 @@ export const repo = {
     const loginCode = patch.codeNeu ? this.eindeutigenCodeErzeugen() : vorhanden.loginCode;
     const next = { ...vorhanden, ...patch, loginCode };
     db.prepare(
-      `UPDATE participants SET name = @name, aktiv = @aktiv, login_code = @login_code
+      `UPDATE participants SET name = @name, aktiv = @aktiv, beginn = @beginn,
+         login_code = @login_code
        WHERE id = @id`,
     ).run({
       id,
       name: next.name,
       aktiv: next.aktiv === false ? 0 : 1,
+      beginn: next.beginn ?? null,
       login_code: next.loginCode,
     });
     return this.teilnehmerById(id)!;
@@ -498,63 +411,110 @@ export const repo = {
     return this.fortschritt(participantId);
   },
 
-  /**
-   * Berechnet den Kursfortschritt pro Teilnehmer. Spiegelt exakt die Logik aus
-   * src/domain/progress.ts: Universum = aktive Tasks; effektive Zielanzahl =
-   * task_status.zielanzahl ?? tasks.zielanzahl_default; gesamt zählt nur Tasks,
-   * die nicht als nicht_anwendbar markiert sind; erledigt, wenn die Anzahl
-   * nicht-gelöschter Executions ≥ effektive Zielanzahl.
-   */
-  kursFortschritt(courseId: string): ParticipantProgressDTO[] {
-    const db = getDb();
-    const teilnehmer = this.teilnehmerDesKurses(courseId);
-    const tasks = this.alleTasks(false); // nur aktive
+  /** Überblick über alle Teilnehmer (erledigt/gesamt/quote je Teilnehmer). */
+  teilnehmerUebersicht(): ParticipantProgressDTO[] {
+    return this.alleTeilnehmer().map((p) => ({
+      participant: p,
+      ...aggregat(teilnehmerAufgaben(p.id)),
+    }));
+  },
 
-    const execCountStmt = db.prepare(
-      `SELECT task_id, COUNT(*) AS anzahl
+  /**
+   * Vollständige Detail-Auswertung eines Teilnehmers: Gesamtquote, Quoten je
+   * Teil (1–3) und die Aufschlüsselung pro Aufgabe sowie die letzte Aktivität.
+   */
+  teilnehmerDetail(id: string): ParticipantDetailDTO {
+    const participant = this.teilnehmerById(id);
+    if (!participant) throw new NotFound('Teilnehmer nicht gefunden');
+
+    const aufgaben = teilnehmerAufgaben(id);
+    const teilNummern: Teil[] = [1, 2, 3];
+    const teile: TeilStatDTO[] = teilNummern
+      .map((teil) => {
+        const anwendbar = aufgaben.filter((a) => a.teil === teil && !a.nichtAnwendbar);
+        const gesamt = anwendbar.length;
+        const erledigt = anwendbar.filter((a) => a.erledigt).length;
+        return { teil, erledigt, gesamt, quote: gesamt > 0 ? erledigt / gesamt : 0 };
+      })
+      .filter((s) => s.gesamt > 0);
+
+    const letzteExec = getDb()
+      .prepare(
+        `SELECT MAX(created_at) AS m FROM executions
+         WHERE participant_id = ? AND deleted_at IS NULL`,
+      )
+      .get(id) as { m: string | null };
+    const kandidaten = [participant.lastSeen, letzteExec.m].filter(
+      (x): x is string => x != null,
+    );
+    const letzteAktivitaet = kandidaten.length ? kandidaten.sort().at(-1)! : null;
+
+    return { participant, ...aggregat(aufgaben), teile, aufgaben, letzteAktivitaet };
+  },
+};
+
+/**
+ * Aufgaben-Aufschlüsselung eines Teilnehmers über den aktiven Katalog. Spiegelt
+ * die Logik aus src/domain/progress.ts: effektive Zielanzahl =
+ * task_status.zielanzahl ?? tasks.zielanzahl_default (min. 1); erledigt, wenn die
+ * Anzahl nicht-gelöschter Durchführungen ≥ Zielanzahl und die Aufgabe anwendbar ist.
+ */
+function teilnehmerAufgaben(participantId: string): TaskProgressDTO[] {
+  const db = getDb();
+  const tasks = repo.alleTasks(false); // nur aktive, sortiert
+
+  const execRows = db
+    .prepare(
+      `SELECT task_id, COUNT(*) AS anzahl, MAX(datum) AS letzte
        FROM executions
        WHERE participant_id = ? AND deleted_at IS NULL
        GROUP BY task_id`,
-    );
-    const statusStmt = db.prepare(
+    )
+    .all(participantId) as Array<{ task_id: string; anzahl: number; letzte: string | null }>;
+  const execMap = new Map(execRows.map((r) => [r.task_id, r]));
+
+  const statusRows = db
+    .prepare(
       `SELECT task_id, zielanzahl, nicht_anwendbar FROM task_status WHERE participant_id = ?`,
-    );
+    )
+    .all(participantId) as Array<{
+    task_id: string;
+    zielanzahl: number | null;
+    nicht_anwendbar: number;
+  }>;
+  const statusMap = new Map(statusRows.map((r) => [r.task_id, r]));
 
-    return teilnehmer.map((p) => {
-      const execCounts = new Map<string, number>();
-      for (const row of execCountStmt.all(p.id) as Array<{
-        task_id: string;
-        anzahl: number;
-      }>) {
-        execCounts.set(row.task_id, row.anzahl);
-      }
-      const statusMap = new Map<string, { zielanzahl: number | null; nichtAnwendbar: boolean }>();
-      for (const row of statusStmt.all(p.id) as Array<{
-        task_id: string;
-        zielanzahl: number | null;
-        nicht_anwendbar: number;
-      }>) {
-        statusMap.set(row.task_id, {
-          zielanzahl: row.zielanzahl,
-          nichtAnwendbar: row.nicht_anwendbar === 1,
-        });
-      }
+  return tasks.map((t) => {
+    const ex = execMap.get(t.id);
+    const st = statusMap.get(t.id);
+    const anzahl = ex?.anzahl ?? 0;
+    const nichtAnwendbar = st?.nicht_anwendbar === 1;
+    const ziel = Math.max(1, st?.zielanzahl ?? t.zielanzahlDefault);
+    return {
+      taskId: t.id,
+      teil: t.teil,
+      nummer: t.nummer,
+      titel: t.titel,
+      anzahl,
+      ziel,
+      erledigt: !nichtAnwendbar && anzahl >= ziel,
+      nichtAnwendbar,
+      letzteDurchfuehrung: ex?.letzte ?? null,
+    };
+  });
+}
 
-      let gesamt = 0;
-      let erledigt = 0;
-      for (const t of tasks) {
-        const st = statusMap.get(t.id);
-        if (st?.nichtAnwendbar) continue; // nicht anwendbar zählt nicht zu gesamt
-        gesamt += 1;
-        const ziel = Math.max(1, st?.zielanzahl ?? t.zielanzahlDefault);
-        const anzahl = execCounts.get(t.id) ?? 0;
-        if (anzahl >= ziel) erledigt += 1;
-      }
-      const quote = gesamt > 0 ? erledigt / gesamt : 0;
-      return { participant: p, erledigt, gesamt, quote };
-    });
-  },
-};
+/** Aggregiert eine Aufgabenliste zu erledigt/gesamt/quote (nicht anwendbare zählen nicht). */
+function aggregat(aufgaben: TaskProgressDTO[]): {
+  erledigt: number;
+  gesamt: number;
+  quote: number;
+} {
+  const anwendbar = aufgaben.filter((a) => !a.nichtAnwendbar);
+  const gesamt = anwendbar.length;
+  const erledigt = anwendbar.filter((a) => a.erledigt).length;
+  return { erledigt, gesamt, quote: gesamt > 0 ? erledigt / gesamt : 0 };
+}
 
 /** Fehler-Marker für „nicht gefunden" (Routes mappen auf 404). */
 export class NotFound extends Error {

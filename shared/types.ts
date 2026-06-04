@@ -48,29 +48,55 @@ export type SyncResponse = ProgressSnapshot;
 
 export type Identity =
   | { kind: 'anon' }
-  | { kind: 'participant'; id: string; name: string; course: { id: string; name: string } }
+  | { kind: 'participant'; id: string; name: string }
   | { kind: 'admin'; id: string; name: string | null; email: string | null };
 
 // Admin-DTOs
-export interface CourseDTO {
-  id: string;
-  name: string;
-  beschreibung: string | null;
-  beginn: string | null;
-  archiviert: boolean;
-  teilnehmerAnzahl?: number;
-}
 export interface ParticipantDTO {
   id: string;
-  courseId: string;
   name: string;
   loginCode: string;
   aktiv: boolean;
+  beginn: string | null; // Trainingsbeginn, ISO yyyy-mm-dd, optional
   lastSeen: string | null;
 }
+
+/** Überblicks-Zeile pro Teilnehmer (Liste). */
 export interface ParticipantProgressDTO {
   participant: ParticipantDTO;
   erledigt: number;
   gesamt: number;
   quote: number;
+}
+
+/** Fortschritt eines einzelnen Teils (1–3). */
+export interface TeilStatDTO {
+  teil: Teil;
+  erledigt: number;
+  gesamt: number;
+  quote: number;
+}
+
+/** Fortschritt einer einzelnen Aufgabe für einen Teilnehmer. */
+export interface TaskProgressDTO {
+  taskId: string;
+  teil: Teil;
+  nummer: string;
+  titel: string;
+  anzahl: number; // nicht-gelöschte Durchführungen
+  ziel: number; // effektive Zielanzahl
+  erledigt: boolean;
+  nichtAnwendbar: boolean;
+  letzteDurchfuehrung: string | null; // datum der jüngsten Durchführung
+}
+
+/** Vollständige Detail-Auswertung eines Teilnehmers. */
+export interface ParticipantDetailDTO {
+  participant: ParticipantDTO;
+  erledigt: number; // über alle anwendbaren Aufgaben
+  gesamt: number;
+  quote: number;
+  teile: TeilStatDTO[]; // pro Teil 1–3
+  aufgaben: TaskProgressDTO[];
+  letzteAktivitaet: string | null; // max(lastSeen, jüngste Durchführung)
 }

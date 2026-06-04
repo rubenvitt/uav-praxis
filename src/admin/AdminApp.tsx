@@ -1,10 +1,9 @@
 import { NavLink, Navigate, Route, Routes } from 'react-router-dom';
 import { useAuth } from '../auth/AuthContext';
 import { AdminLogin } from './AdminLogin';
-import { CoursesPage } from './CoursesPage';
-import { CourseDetailPage } from './CourseDetailPage';
+import { ParticipantsPage } from './ParticipantsPage';
+import { ParticipantDetailPage } from './ParticipantDetailPage';
 import { CatalogPage } from './CatalogPage';
-import { ProgressPage } from './ProgressPage';
 import './admin.css';
 
 /**
@@ -33,14 +32,11 @@ export function AdminApp() {
           <h1>Drohnen-Trainingsbegleiter</h1>
         </div>
         <nav className="admin-nav" aria-label="Admin-Navigation">
-          <NavLink to="/admin/courses" className={navKlasse}>
-            Kurse
+          <NavLink to="/admin/participants" className={navKlasse}>
+            Teilnehmer
           </NavLink>
           <NavLink to="/admin/katalog" className={navKlasse}>
             Aufgabenkatalog
-          </NavLink>
-          <NavLink to="/admin/auswertung" className={navKlasse}>
-            Auswertung
           </NavLink>
         </nav>
         <div className="admin-konto">
@@ -53,12 +49,11 @@ export function AdminApp() {
 
       <main className="admin-inhalt">
         <Routes>
-          <Route index element={<Navigate to="courses" replace />} />
-          <Route path="courses" element={<CoursesPage />} />
-          <Route path="courses/:courseId" element={<CourseDetailPage />} />
+          <Route index element={<Navigate to="participants" replace />} />
+          <Route path="participants" element={<ParticipantsPage />} />
+          <Route path="participants/:participantId" element={<ParticipantDetailPage />} />
           <Route path="katalog" element={<CatalogPage />} />
-          <Route path="auswertung" element={<ProgressPage />} />
-          <Route path="*" element={<Navigate to="courses" replace />} />
+          <Route path="*" element={<Navigate to="participants" replace />} />
         </Routes>
       </main>
     </div>

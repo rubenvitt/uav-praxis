@@ -2,10 +2,10 @@ import { describe, it, expect, vi } from 'vitest';
 import { render, screen } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { TaskDetail } from './TaskDetail';
-import type { Aufgabe } from '../data/tasks';
+import type { TaskDTO } from '../../shared/types';
 import { leererFortschritt } from '../domain/progress';
 
-const aufgabe: Aufgabe = {
+const aufgabe: TaskDTO = {
   id: '2-8',
   teil: 2,
   nummer: '2.8',
@@ -15,6 +15,9 @@ const aufgabe: Aufgabe = {
   durchfuehrungshinweise: ['Hinweis A'],
   sicherheitshinweise: ['Übung nur in Sichtweite durchführen!'],
   zielanzahlDefault: 4,
+  sortOrder: 0,
+  aktiv: true,
+  bildUrl: null,
 };
 
 function setup(over = {}) {
@@ -55,5 +58,16 @@ describe('TaskDetail', () => {
   it('blendet bei "nicht anwendbar" das Erfassen aus', () => {
     setup({ fortschritt: { ...leererFortschritt(4), nichtAnwendbar: true } });
     expect(screen.queryByRole('button', { name: /hinzufügen/i })).toBeNull();
+  });
+
+  it('rendert das konfigurierte Bild über bildUrl', () => {
+    setup({ aufgabe: { ...aufgabe, bildUrl: '/illustrations/2-8.webp' } });
+    const img = screen.getByRole('img', { name: /Simulierter Ausfall des GPS/ });
+    expect(img).toHaveAttribute('src', '/illustrations/2-8.webp');
+  });
+
+  it('rendert kein Bild, wenn bildUrl null ist', () => {
+    setup(); // aufgabe.bildUrl === null
+    expect(screen.queryByRole('img')).toBeNull();
   });
 });

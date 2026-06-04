@@ -12,6 +12,7 @@ interface FormZustand {
   sicherheitshinweise: string[];
   zielanzahlDefault: number;
   aktiv: boolean;
+  bildUrl: string;
 }
 
 const LEER: FormZustand = {
@@ -24,6 +25,7 @@ const LEER: FormZustand = {
   sicherheitshinweise: [],
   zielanzahlDefault: 1,
   aktiv: true,
+  bildUrl: '',
 };
 
 function formAusTask(t: TaskDTO): FormZustand {
@@ -37,6 +39,7 @@ function formAusTask(t: TaskDTO): FormZustand {
     sicherheitshinweise: [...t.sicherheitshinweise],
     zielanzahlDefault: t.zielanzahlDefault,
     aktiv: t.aktiv,
+    bildUrl: t.bildUrl ?? '',
   };
 }
 
@@ -51,6 +54,7 @@ function eingabeAus(z: FormZustand): TaskEingabe {
     sicherheitshinweise: z.sicherheitshinweise.map((s) => s.trim()).filter(Boolean),
     zielanzahlDefault: z.zielanzahlDefault,
     aktiv: z.aktiv,
+    bildUrl: z.bildUrl.trim() || null,
   };
 }
 
@@ -171,6 +175,17 @@ function TaskFormular({
           id="task-lernziel"
           value={zustand.lernziel}
           onChange={(e) => setZustand({ ...zustand, lernziel: e.target.value })}
+        />
+      </div>
+      <div className="feld">
+        <label htmlFor="task-bild">Bild-URL (optional)</label>
+        <input
+          id="task-bild"
+          className="eingabe"
+          type="text"
+          value={zustand.bildUrl}
+          onChange={(e) => setZustand({ ...zustand, bildUrl: e.target.value })}
+          placeholder="z. B. /illustrations/1-1.webp oder https://…"
         />
       </div>
       <ListenEditor

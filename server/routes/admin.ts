@@ -2,118 +2,93 @@ import { Hono } from 'hono';
 import type { Context } from 'hono';
 import { z } from 'zod';
 import type { AppEnv } from '../auth/middleware.ts';
-import { getIdentity, requireAdmin } from '../auth/middleware.ts';
+import { requireAdmin } from '../auth/middleware.ts';
 import { repo } from '../db/repo.ts';
-import { fehler, jsonBody } from '../http.ts';
+import { jsonBody } from '../http.ts';
 
-/** /api/admin/* — Kurse, Teilnehmer, Katalog-CRUD, Kurs-Auswertung. */
+/** /api/admin/* — Teilnehmer, Katalog-CRUD, Auswertung (Überblick + Detail). */
 export const adminRouter = new Hono<AppEnv>();
 
 // Alle Admin-Routen hinter requireAdmin.
 adminRouter.use('*', requireAdmin);
 
-function adminId(c: Context<AppEnv>): string | null {
-  const id = getIdentity(c);
-  return id.kind === 'admin' ? id.id : null;
+/**
+ * CSV-Feld escapen und gegen Formel-Injection härten: Werte, die (auch nach
+ * führendem Tab/CR) mit = + - @ beginnen, mit führendem Apostroph neutralisieren.
+ */
+function csvFeld(v: string): string {
+  const sicher = /^[\t\r]*[=+\-@]/.test(v) ? `'${v}` : v;
+  return `"${sicher.replace(/"/g, '""')}"`;
 }
 
-// ── Kurse ───────────────────────────────────────────────────────────────────
-
-adminRouter.get('/courses', (c) => c.json(repo.alleKurse()));
-
-const kursAnlegenSchema = z.object({
-  name: z.string().min(1),
-  beschreibung: z.string().nullable().optional(),
-  beginn: z.string().nullable().optional(),
-});
-
-adminRouter.post('/courses', async (c) => {
-  const body = await jsonBody(c, kursAnlegenSchema);
-  const kurs = repo.kursAnlegen(
-    {
-      name: body.name,
-      beschreibung: body.beschreibung ?? null,
-      beginn: body.beginn ?? null,
-    },
-    adminId(c),
-  );
-  return c.json(kurs, 201);
-});
-
-const kursPatchSchema = z.object({
-  name: z.string().min(1).optional(),
-  beschreibung: z.string().nullable().optional(),
-  beginn: z.string().nullable().optional(),
-  archiviert: z.boolean().optional(),
-});
-
-adminRouter.patch('/courses/:id', async (c) => {
-  const body = await jsonBody(c, kursPatchSchema);
-  const kurs = repo.kursAendern(c.req.param('id'), body);
-  return c.json(kurs);
-});
-
-adminRouter.delete('/courses/:id', (c) => {
-  repo.kursLoeschen(c.req.param('id'));
-  return c.json({ ok: true });
-});
-
-adminRouter.get('/courses/:id/participants', (c) => {
-  return c.json(repo.teilnehmerDesKurses(c.req.param('id')));
-});
-
-adminRouter.get('/courses/:id/progress', (c) => {
-  return c.json(repo.kursFortschritt(c.req.param('id')));
-});
-
-// CSV-Export der Auswertung
-adminRouter.get('/courses/:id/export', (c) => {
-  const courseId = c.req.param('id');
-  const kurs = repo.kursById(courseId);
-  if (!kurs) return fehler(c, 404, 'not_found', 'Kurs nicht gefunden');
-
-  const zeilen = repo.kursFortschritt(courseId);
-  const header = ['Name', 'Code', 'Aktiv', 'Erledigt', 'Gesamt', 'Quote', 'ZuletztGesehen'];
-  const csvFeld = (v: string) => {
-    // CSV-Formel-Injection verhindern: Werte, die (auch nach führendem Tab/CR)
-    // mit = + - @ beginnen, mit führendem Apostroph neutralisieren.
-    const sicher = /^[\t\r]*[=+\-@]/.test(v) ? `'${v}` : v;
-    return `"${sicher.replace(/"/g, '""')}"`;
-  };
-  const rows = zeilen.map((z) =>
-    [
-      z.participant.name,
-      z.participant.loginCode,
-      z.participant.aktiv ? 'ja' : 'nein',
-      String(z.erledigt),
-      String(z.gesamt),
-      `${Math.round(z.quote * 100)}%`,
-      z.participant.lastSeen ?? '',
-    ]
-      .map(csvFeld)
-      .join(','),
-  );
-  const csv = '﻿' + [header.map(csvFeld).join(','), ...rows].join('\r\n') + '\r\n';
-
-  const dateiname = `kurs-${kurs.name.replace(/[^\w-]+/g, '_')}-auswertung.csv`;
+function csvAntwort(c: Context<AppEnv>, zeilen: string[][], dateiname: string) {
+  const csv = '﻿' + zeilen.map((z) => z.map(csvFeld).join(',')).join('\r\n') + '\r\n';
   c.header('Content-Type', 'text/csv; charset=utf-8');
   c.header('Content-Disposition', `attachment; filename="${dateiname}"`);
   return c.body(csv);
-});
+}
+
+function dateiSlug(s: string): string {
+  return s.replace(/[^\w-]+/g, '_');
+}
 
 // ── Teilnehmer ───────────────────────────────────────────────────────────────
 
-const teilnehmerAnlegenSchema = z.object({ name: z.string().min(1) });
+// Überblick: eine Zeile pro Teilnehmer (erledigt/gesamt/quote + letzte Aktivität).
+adminRouter.get('/participants', (c) => c.json(repo.teilnehmerUebersicht()));
 
-adminRouter.post('/courses/:id/participants', async (c) => {
+const teilnehmerAnlegenSchema = z.object({
+  name: z.string().min(1),
+  beginn: z.string().nullable().optional(),
+});
+
+adminRouter.post('/participants', async (c) => {
   const body = await jsonBody(c, teilnehmerAnlegenSchema);
-  const teilnehmer = repo.teilnehmerAnlegen(c.req.param('id'), body.name);
+  const teilnehmer = repo.teilnehmerAnlegen(body.name, body.beginn ?? null);
   return c.json(teilnehmer, 201);
+});
+
+// Überblick-CSV (vor :id registrieren, damit "export" nicht als :id matched).
+adminRouter.get('/participants/export', (c) => {
+  const header = ['Name', 'Beginn', 'Erledigt', 'Gesamt', 'Quote', 'LetzteAktivität', 'Status'];
+  const rows = repo.teilnehmerUebersicht().map((z) => [
+    z.participant.name,
+    z.participant.beginn ?? '',
+    String(z.erledigt),
+    String(z.gesamt),
+    `${Math.round(z.quote * 100)}%`,
+    z.participant.lastSeen ?? '',
+    z.participant.aktiv ? 'aktiv' : 'inaktiv',
+  ]);
+  return csvAntwort(c, [header, ...rows], 'teilnehmer-uebersicht.csv');
+});
+
+// Detail-Auswertung eines Teilnehmers.
+adminRouter.get('/participants/:id', (c) => {
+  return c.json(repo.teilnehmerDetail(c.req.param('id')));
+});
+
+// Detail-CSV: eine Zeile pro Aufgabe.
+adminRouter.get('/participants/:id/export', (c) => {
+  const detail = repo.teilnehmerDetail(c.req.param('id'));
+  const header = ['Teil', 'Nummer', 'Titel', 'Anzahl', 'Ziel', 'Erledigt', 'NichtAnwendbar', 'LetzteDurchführung'];
+  const rows = detail.aufgaben.map((a) => [
+    String(a.teil),
+    a.nummer,
+    a.titel,
+    String(a.anzahl),
+    String(a.ziel),
+    a.erledigt ? 'ja' : 'nein',
+    a.nichtAnwendbar ? 'ja' : 'nein',
+    a.letzteDurchfuehrung ?? '',
+  ]);
+  return csvAntwort(c, [header, ...rows], `teilnehmer-${dateiSlug(detail.participant.name)}-auswertung.csv`);
 });
 
 const teilnehmerPatchSchema = z.object({
   name: z.string().min(1).optional(),
   aktiv: z.boolean().optional(),
+  beginn: z.string().nullable().optional(),
   codeNeu: z.boolean().optional(),
 });
 
@@ -146,6 +121,9 @@ const taskAnlegenSchema = z.object({
   zielanzahlDefault: z.number().int().positive().default(1),
   sortOrder: z.number().int().optional(),
   aktiv: z.boolean().default(true),
+  // Relativer Pfad (z. B. /illustrations/1-1.webp) oder absolute URL — daher kein
+  // .url(); leerer String wird zu null normalisiert.
+  bildUrl: z.string().nullable().optional(),
 });
 
 adminRouter.post('/tasks', async (c) => {
@@ -160,8 +138,11 @@ adminRouter.post('/tasks', async (c) => {
     durchfuehrungshinweise: body.durchfuehrungshinweise,
     sicherheitshinweise: body.sicherheitshinweise,
     zielanzahlDefault: body.zielanzahlDefault,
-    sortOrder: body.sortOrder ?? 0,
+    // Kein Default: bei fehlendem sortOrder hängt das Repo die Aufgabe ans Ende
+    // an (maxSort + 1). Ein `?? 0` würde diese Append-Logik aushebeln.
+    sortOrder: body.sortOrder,
     aktiv: body.aktiv,
+    bildUrl: body.bildUrl?.trim() ? body.bildUrl.trim() : null,
   });
   return c.json(task, 201);
 });
@@ -177,11 +158,17 @@ const taskPatchSchema = z.object({
   zielanzahlDefault: z.number().int().positive().optional(),
   sortOrder: z.number().int().optional(),
   aktiv: z.boolean().optional(),
+  bildUrl: z.string().nullable().optional(),
 });
 
 adminRouter.patch('/tasks/:id', async (c) => {
   const body = await jsonBody(c, taskPatchSchema);
-  const task = repo.taskAendern(c.req.param('id'), body);
+  // Leerer String = Bild entfernen (→ null); fehlendes Feld = unverändert lassen.
+  const patch =
+    typeof body.bildUrl === 'string'
+      ? { ...body, bildUrl: body.bildUrl.trim() || null }
+      : body;
+  const task = repo.taskAendern(c.req.param('id'), patch);
   return c.json(task);
 });
 

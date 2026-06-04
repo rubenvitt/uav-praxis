@@ -1,4 +1,4 @@
-import type { Aufgabe } from '../data/tasks';
+import type { TaskDTO } from '../../shared/types';
 import {
   type AufgabenFortschritt,
   type Durchfuehrung,
@@ -7,7 +7,7 @@ import {
 import { DurchfuehrungForm } from './DurchfuehrungForm';
 
 type Props = {
-  aufgabe: Aufgabe & { bildUrl?: string | null; bild?: string | null };
+  aufgabe: TaskDTO;
   fortschritt: AufgabenFortschritt;
   heute: string;
   onAdd: (eintrag: Omit<Durchfuehrung, 'id'>) => void;
@@ -29,7 +29,7 @@ export function TaskDetail({
 }: Props) {
   const status = aufgabenStatus(fortschritt);
   const istTeil23 = aufgabe.teil !== 1;
-  const bild = aufgabe.bildUrl ?? aufgabe.bild ?? null;
+  const bild = aufgabe.bildUrl ?? null;
 
   // Alt-Text: Titel + knappe Lernziel-/Motiv-Kurzfassung (§14), auf eine kurze,
   // gut vorlesbare Länge gekappt.

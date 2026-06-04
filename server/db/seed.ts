@@ -11,9 +11,10 @@ import { AUFGABEN } from '../../src/data/tasks.ts';
  * public/illustrations/<id>.webp, falls die Datei existiert, sonst NULL.
  *
  * Idempotent und nicht-destruktiv: fehlende Tasks werden angelegt; bei bereits
- * vorhandenen Tasks wird NUR der bild-Pfad aktualisiert (für den
- * Illustrations-Workflow §14). Admin-Bearbeitungen (Titel, Zielanzahl,
- * Reihenfolge, aktiv-Flag, ...) bleiben über Neustarts hinweg erhalten.
+ * vorhandenen Tasks wird der bild-Pfad NUR gesetzt, wenn er noch NULL ist
+ * (COALESCE, für den Illustrations-Workflow §14). So überleben im Admin
+ * konfigurierte Bild-URLs einen Neustart. Admin-Bearbeitungen (Titel,
+ * Zielanzahl, Reihenfolge, aktiv-Flag, ...) bleiben ebenfalls erhalten.
  */
 export function seed(): void {
   const db = getDb();
@@ -27,7 +28,7 @@ export function seed(): void {
         @durchfuehrungshinweise, @sicherheitshinweise, @zielanzahl_default,
         @sort_order, 1, @bild, @updated_at)
      ON CONFLICT(id) DO UPDATE SET
-       bild = excluded.bild`,
+       bild = COALESCE(tasks.bild, excluded.bild)`,
   );
 
   const ts = new Date().toISOString();

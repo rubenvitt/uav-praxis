@@ -1,6 +1,6 @@
 import type {
-  CourseDTO,
   Identity,
+  ParticipantDetailDTO,
   ParticipantDTO,
   ParticipantProgressDTO,
   ProgressSnapshot,
@@ -76,20 +76,14 @@ async function anfrage<T>(
 }
 
 // ── Eingabe-Typen für Admin-Mutationen ──────────────────────────────────────
-export interface KursEingabe {
+export interface TeilnehmerEingabe {
   name: string;
-  beschreibung?: string | null;
   beginn?: string | null;
-}
-export interface KursPatch {
-  name?: string;
-  beschreibung?: string | null;
-  beginn?: string | null;
-  archiviert?: boolean;
 }
 export interface TeilnehmerPatch {
   name?: string;
   aktiv?: boolean;
+  beginn?: string | null;
   codeNeu?: boolean;
 }
 export interface TaskEingabe {
@@ -104,6 +98,7 @@ export interface TaskEingabe {
   zielanzahlDefault?: number;
   sortOrder?: number;
   aktiv?: boolean;
+  bildUrl?: string | null;
 }
 export type TaskPatch = Partial<Omit<TaskEingabe, 'id'>>;
 
@@ -148,43 +143,17 @@ export const api = {
     return anfrage<SyncResponse>('/sync', { method: 'POST', body: req });
   },
 
-  // ── Admin: Kurse ───────────────────────────────────────────────────────────
-  adminGetCourses(): Promise<CourseDTO[]> {
-    return anfrage<CourseDTO[]>('/admin/courses');
-  },
-  adminCreateCourse(eingabe: KursEingabe): Promise<CourseDTO> {
-    return anfrage<CourseDTO>('/admin/courses', { method: 'POST', body: eingabe });
-  },
-  adminUpdateCourse(id: string, patch: KursPatch): Promise<CourseDTO> {
-    return anfrage<CourseDTO>(`/admin/courses/${encodeURIComponent(id)}`, {
-      method: 'PATCH',
-      body: patch,
-    });
-  },
-  adminDeleteCourse(id: string): Promise<void> {
-    return anfrage<void>(`/admin/courses/${encodeURIComponent(id)}`, { method: 'DELETE' });
-  },
-  adminGetCourseProgress(courseId: string): Promise<ParticipantProgressDTO[]> {
-    return anfrage<ParticipantProgressDTO[]>(
-      `/admin/courses/${encodeURIComponent(courseId)}/progress`,
-    );
-  },
-  /** URL für den CSV-Export (direkt verlinken/öffnen, kein fetch). */
-  exportUrl(courseId: string): string {
-    return `${BASIS}/admin/courses/${encodeURIComponent(courseId)}/export`;
-  },
-
   // ── Admin: Teilnehmer ──────────────────────────────────────────────────────
-  adminGetParticipants(courseId: string): Promise<ParticipantDTO[]> {
-    return anfrage<ParticipantDTO[]>(
-      `/admin/courses/${encodeURIComponent(courseId)}/participants`,
-    );
+  /** Überblick über alle Teilnehmer (erledigt/gesamt/quote + Stammdaten). */
+  adminGetParticipants(): Promise<ParticipantProgressDTO[]> {
+    return anfrage<ParticipantProgressDTO[]>('/admin/participants');
   },
-  adminCreateParticipant(courseId: string, name: string): Promise<ParticipantDTO> {
-    return anfrage<ParticipantDTO>(
-      `/admin/courses/${encodeURIComponent(courseId)}/participants`,
-      { method: 'POST', body: { name } },
-    );
+  /** Vollständige Detail-Auswertung eines Teilnehmers. */
+  adminGetParticipantDetail(id: string): Promise<ParticipantDetailDTO> {
+    return anfrage<ParticipantDetailDTO>(`/admin/participants/${encodeURIComponent(id)}`);
+  },
+  adminCreateParticipant(eingabe: TeilnehmerEingabe): Promise<ParticipantDTO> {
+    return anfrage<ParticipantDTO>('/admin/participants', { method: 'POST', body: eingabe });
   },
   adminUpdateParticipant(id: string, patch: TeilnehmerPatch): Promise<ParticipantDTO> {
     return anfrage<ParticipantDTO>(`/admin/participants/${encodeURIComponent(id)}`, {
@@ -194,6 +163,14 @@ export const api = {
   },
   adminDeleteParticipant(id: string): Promise<void> {
     return anfrage<void>(`/admin/participants/${encodeURIComponent(id)}`, { method: 'DELETE' });
+  },
+  /** URL für den Detail-CSV-Export eines Teilnehmers (direkt verlinken, kein fetch). */
+  exportDetailUrl(id: string): string {
+    return `${BASIS}/admin/participants/${encodeURIComponent(id)}/export`;
+  },
+  /** URL für den Überblick-CSV-Export aller Teilnehmer. */
+  exportUebersichtUrl(): string {
+    return `${BASIS}/admin/participants/export`;
   },
 
   // ── Admin: Aufgabenkatalog ─────────────────────────────────────────────────

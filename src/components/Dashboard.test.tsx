@@ -1,9 +1,17 @@
 import { describe, it, expect, vi } from 'vitest';
 import { render, screen } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
+import type { TaskDTO } from '../../shared/types';
 import { Dashboard } from './Dashboard';
 import { AUFGABEN } from '../data/tasks';
 import { leererFortschritt } from '../domain/progress';
+
+const KATALOG: TaskDTO[] = AUFGABEN.map((a, i) => ({
+  ...a,
+  sortOrder: i,
+  aktiv: true,
+  bildUrl: null,
+}));
 
 function vollerFortschritt() {
   const f: Record<string, ReturnType<typeof leererFortschritt>> = {};
@@ -13,19 +21,19 @@ function vollerFortschritt() {
 
 describe('Dashboard', () => {
   it('zeigt den Gesamtfortschritt 0 von 24', () => {
-    render(<Dashboard fortschritt={vollerFortschritt()} onSelect={vi.fn()} />);
+    render(<Dashboard katalog={KATALOG} fortschritt={vollerFortschritt()} onSelect={vi.fn()} />);
     expect(screen.getByText(/0 von 24/)).toBeInTheDocument();
   });
 
   it('listet alle 24 Aufgaben', () => {
-    render(<Dashboard fortschritt={vollerFortschritt()} onSelect={vi.fn()} />);
+    render(<Dashboard katalog={KATALOG} fortschritt={vollerFortschritt()} onSelect={vi.fn()} />);
     expect(screen.getByText(/1\.1/)).toBeInTheDocument();
     expect(screen.getByText(/3\.5/)).toBeInTheDocument();
   });
 
   it('ruft onSelect mit der Aufgaben-ID auf', async () => {
     const onSelect = vi.fn();
-    render(<Dashboard fortschritt={vollerFortschritt()} onSelect={onSelect} />);
+    render(<Dashboard katalog={KATALOG} fortschritt={vollerFortschritt()} onSelect={onSelect} />);
     await userEvent.click(screen.getByText(/Schwebeflug/));
     expect(onSelect).toHaveBeenCalledWith('1-1');
   });

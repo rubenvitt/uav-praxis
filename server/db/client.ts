@@ -28,7 +28,7 @@ export interface Db extends Omit<DatabaseSync, 'prepare'> {
 
 let instanz: Db | null = null;
 
-function shimmen(db: DatabaseSync): Db {
+export function shimmen(db: DatabaseSync): Db {
   const erweitert = db as unknown as Db;
   erweitert.pragma = (quelle: string) => {
     db.exec(`PRAGMA ${quelle}`);

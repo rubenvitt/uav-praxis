@@ -1,4 +1,5 @@
-import { AUFGABEN } from '../data/tasks';
+import { useMemo } from 'react';
+import type { TaskDTO } from '../../shared/types';
 import { type AufgabenFortschritt, gesamtFortschritt } from '../domain/progress';
 import { TaskCard } from './TaskCard';
 
@@ -9,12 +10,23 @@ const TEILE: { teil: 1 | 2 | 3; titel: string }[] = [
 ];
 
 type Props = {
+  katalog: TaskDTO[];
   fortschritt: Record<string, AufgabenFortschritt>;
   onSelect: (id: string) => void;
 };
 
-export function Dashboard({ fortschritt, onSelect }: Props) {
-  const { erledigt, gesamt } = gesamtFortschritt(fortschritt);
+export function Dashboard({ katalog, fortschritt, onSelect }: Props) {
+  // Gesamtfortschritt nur über die aktuell sichtbaren Katalog-Aufgaben rechnen —
+  // ein lokaler Stand für inzwischen deaktivierte/entfernte Aufgaben zählt nicht mit.
+  const sichtbarerFortschritt = useMemo(() => {
+    const map: Record<string, AufgabenFortschritt> = {};
+    for (const t of katalog) {
+      const f = fortschritt[t.id];
+      if (f) map[t.id] = f;
+    }
+    return map;
+  }, [katalog, fortschritt]);
+  const { erledigt, gesamt } = gesamtFortschritt(sichtbarerFortschritt);
   const prozent = gesamt === 0 ? 0 : Math.round((erledigt / gesamt) * 100);
 
   return (
@@ -38,7 +50,7 @@ export function Dashboard({ fortschritt, onSelect }: Props) {
         <section key={teil} className="teil-sektion">
           <h2 className="sektion-titel">{titel}</h2>
           <div className="aufgaben-liste">
-            {AUFGABEN.filter((a) => a.teil === teil).map((a) => (
+            {katalog.filter((a) => a.teil === teil).map((a) => (
               <TaskCard
                 key={a.id}
                 aufgabe={a}

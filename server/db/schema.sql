@@ -12,24 +12,13 @@ CREATE TABLE IF NOT EXISTS admins (
   last_login  TEXT
 );
 
--- Kurse
-CREATE TABLE IF NOT EXISTS courses (
-  id           TEXT PRIMARY KEY,
-  name         TEXT NOT NULL,
-  beschreibung TEXT,
-  beginn       TEXT,              -- ISO yyyy-mm-dd, optional
-  archiviert   INTEGER NOT NULL DEFAULT 0,
-  created_by   TEXT,              -- admins.id
-  created_at   TEXT NOT NULL
-);
-
--- Teilnehmer
+-- Teilnehmer (oberste Verwaltungsebene; kein Kurskonzept mehr)
 CREATE TABLE IF NOT EXISTS participants (
   id          TEXT PRIMARY KEY,
-  course_id   TEXT NOT NULL REFERENCES courses(id) ON DELETE CASCADE,
   name        TEXT NOT NULL,
   login_code  TEXT UNIQUE NOT NULL,   -- persönlicher Dauer-Code (base32, 8 Zeichen)
   aktiv       INTEGER NOT NULL DEFAULT 1,
+  beginn      TEXT,                    -- Trainingsbeginn, ISO yyyy-mm-dd, optional
   created_at  TEXT NOT NULL,
   last_seen   TEXT
 );

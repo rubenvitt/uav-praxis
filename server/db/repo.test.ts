@@ -59,16 +59,15 @@ function setupTaskKurzKatalog() {
   });
 }
 
-function setupKursMitTeilnehmer(): { courseId: string; participantId: string } {
-  const kurs = repo.kursAnlegen({ name: 'Kurs A' }, null);
-  const teilnehmer = repo.teilnehmerAnlegen(kurs.id, 'Alice');
-  return { courseId: kurs.id, participantId: teilnehmer.id };
+function setupTeilnehmer(): { participantId: string } {
+  const teilnehmer = repo.teilnehmerAnlegen('Alice');
+  return { participantId: teilnehmer.id };
 }
 
 describe('Sync-Idempotenz', () => {
   it('wendet denselben SyncRequest zweimal an, ohne Duplikate zu erzeugen', () => {
     setupTaskKurzKatalog();
-    const { participantId } = setupKursMitTeilnehmer();
+    const { participantId } = setupTeilnehmer();
 
     const req: SyncRequest = {
       since: null,
@@ -103,7 +102,7 @@ describe('Sync-Idempotenz', () => {
 
   it('TaskStatus ist last-write-wins per updatedAt (älteres updatedAt überschreibt nicht)', () => {
     setupTaskKurzKatalog();
-    const { participantId } = setupKursMitTeilnehmer();
+    const { participantId } = setupTeilnehmer();
 
     repo.sync(participantId, {
       since: null,
@@ -141,7 +140,7 @@ describe('Sync-Idempotenz', () => {
 
   it('Tombstone (deletedAt) wird beim erneuten Upsert übernommen', () => {
     setupTaskKurzKatalog();
-    const { participantId } = setupKursMitTeilnehmer();
+    const { participantId } = setupTeilnehmer();
 
     repo.sync(participantId, {
       since: null,
@@ -182,16 +181,14 @@ describe('Seed', () => {
 
 describe('Code-Login', () => {
   it('akzeptiert gültigen Code und lehnt ungültigen ab', () => {
-    const kurs = repo.kursAnlegen({ name: 'Kurs B' }, null);
-    const teilnehmer = repo.teilnehmerAnlegen(kurs.id, 'Carol');
+    const teilnehmer = repo.teilnehmerAnlegen('Carol');
 
     expect(repo.teilnehmerPerCode(teilnehmer.loginCode)?.id).toBe(teilnehmer.id);
     expect(repo.teilnehmerPerCode('XXXXXXXX')).toBeNull();
   });
 
   it('lehnt Code eines inaktiven Teilnehmers ab', () => {
-    const kurs = repo.kursAnlegen({ name: 'Kurs C' }, null);
-    const teilnehmer = repo.teilnehmerAnlegen(kurs.id, 'Dan');
+    const teilnehmer = repo.teilnehmerAnlegen('Dan');
     repo.teilnehmerAendern(teilnehmer.id, { aktiv: false });
     expect(repo.teilnehmerPerCode(teilnehmer.loginCode)).toBeNull();
   });
@@ -200,7 +197,7 @@ describe('Code-Login', () => {
 describe('Progress-Berechnung (spiegelt src/domain/progress.ts)', () => {
   it('zählt erledigt/gesamt korrekt; nichtAnwendbar zählt nicht zu gesamt', () => {
     setupTaskKurzKatalog();
-    const { courseId, participantId } = setupKursMitTeilnehmer();
+    const { participantId } = setupTeilnehmer();
 
     // t1: Default-Ziel 2 → erledigt mit 2 Executions.
     // t2: Default-Ziel 1, aber als nichtAnwendbar markiert → nicht in gesamt.
@@ -217,9 +214,7 @@ describe('Progress-Berechnung (spiegelt src/domain/progress.ts)', () => {
       ],
     });
 
-    const ergebnis = repo.kursFortschritt(courseId);
-    expect(ergebnis).toHaveLength(1);
-    const p = ergebnis[0];
+    const p = repo.teilnehmerDetail(participantId);
     // gesamt: nur t1 (t2 nichtAnwendbar, t3 inaktiv) → 1
     expect(p.gesamt).toBe(1);
     // erledigt: t1 hat 2 nicht-gelöschte Executions ≥ Ziel 2 → 1
@@ -229,7 +224,7 @@ describe('Progress-Berechnung (spiegelt src/domain/progress.ts)', () => {
 
   it('stimmt mit gesamtFortschritt aus src/domain/progress.ts überein', () => {
     setupTaskKurzKatalog();
-    const { courseId, participantId } = setupKursMitTeilnehmer();
+    const { participantId } = setupTeilnehmer();
 
     repo.sync(participantId, {
       since: null,
@@ -248,14 +243,14 @@ describe('Progress-Berechnung (spiegelt src/domain/progress.ts)', () => {
     };
     const erwartet = gesamtFortschritt(map);
 
-    const p = repo.kursFortschritt(courseId)[0];
+    const p = repo.teilnehmerDetail(participantId);
     expect(p.erledigt).toBe(erwartet.erledigt);
     expect(p.gesamt).toBe(erwartet.gesamt);
   });
 
   it('berücksichtigt Zielanzahl-Override aus task_status', () => {
     setupTaskKurzKatalog();
-    const { courseId, participantId } = setupKursMitTeilnehmer();
+    const { participantId } = setupTeilnehmer();
 
     // t2 Default-Ziel 1, Override auf 3 → mit 2 Executions noch offen.
     repo.sync(participantId, {
@@ -269,7 +264,7 @@ describe('Progress-Berechnung (spiegelt src/domain/progress.ts)', () => {
       ],
     });
 
-    const p = repo.kursFortschritt(courseId)[0];
+    const p = repo.teilnehmerDetail(participantId);
     expect(p.gesamt).toBe(2); // t1 + t2
     expect(p.erledigt).toBe(0); // t1: 0/2, t2: 2/3
     expect(p.quote).toBe(0);

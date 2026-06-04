@@ -1,7 +1,7 @@
 import { describe, it, expect, beforeEach, vi } from 'vitest';
 import { renderHook, act, waitFor } from '@testing-library/react';
 import type { ReactNode } from 'react';
-import type { Identity } from '../../shared/types';
+import type { Identity, TaskDTO } from '../../shared/types';
 
 // api.me() liefert eine Teilnehmer-Identität → AuthProvider wechselt von anon zu
 // participant und löst die einmalige Übernahme in useFortschritt aus.
@@ -11,7 +11,6 @@ vi.mock('../api/client', () => {
     kind: 'participant',
     id: 'p-1',
     name: 'Test',
-    course: { id: 'k-1', name: 'Kurs' },
   };
   return {
     ApiError: class ApiError extends Error {},
@@ -34,6 +33,26 @@ import { localStore } from '../offline/localStore';
 import { useFortschritt } from './useFortschritt';
 
 const EPOCH_ISO = '1970-01-01T00:00:00.000Z';
+
+// Minimaler Katalog mit den Default-Zielanzahlen, auf denen die Abweichungs-
+// Heuristik (statusWeichtAb) beruht: 1-1 → 4, 1-2 → 8.
+function task(id: string, nummer: string, zielanzahlDefault: number): TaskDTO {
+  return {
+    id,
+    teil: 1,
+    nummer,
+    titel: id,
+    lernziel: '',
+    schritte: [],
+    durchfuehrungshinweise: [],
+    sicherheitshinweise: [],
+    zielanzahlDefault,
+    sortOrder: 0,
+    aktiv: true,
+    bildUrl: null,
+  };
+}
+const KATALOG: TaskDTO[] = [task('1-1', '1.1', 4), task('1-2', '1.2', 8)];
 
 function wrapper({ children }: { children: ReactNode }) {
   return <AuthProvider>{children}</AuthProvider>;
@@ -62,7 +81,7 @@ describe('useFortschritt — Anonym → eingeloggt Übernahme (§9)', () => {
       }),
     );
 
-    const { unmount } = renderHook(() => useFortschritt(), { wrapper });
+    const { unmount } = renderHook(() => useFortschritt(KATALOG), { wrapper });
 
     await waitFor(() => {
       const { taskStatus } = localStore.queueAlsSyncMutationen();
@@ -84,7 +103,7 @@ describe('useFortschritt — Anonym → eingeloggt Übernahme (§9)', () => {
     act(() => unmount());
     localStore.queueLeeren();
 
-    renderHook(() => useFortschritt(), { wrapper });
+    renderHook(() => useFortschritt(KATALOG), { wrapper });
     // Kurz warten, falls der Effekt doch feuern würde.
     await act(async () => {
       await new Promise((r) => setTimeout(r, 0));

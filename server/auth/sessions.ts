@@ -26,11 +26,9 @@ interface AdminRow {
   email: string | null;
 }
 
-interface ParticipantJoinRow {
+interface ParticipantRow {
   id: string;
   name: string;
-  course_id: string;
-  course_name: string;
 }
 
 /**
@@ -85,19 +83,10 @@ export function sessionValidieren(token: string): Identity | null {
 
   // participant
   const p = db
-    .prepare(
-      `SELECT p.id, p.name, p.course_id, c.name AS course_name
-       FROM participants p JOIN courses c ON c.id = p.course_id
-       WHERE p.id = ? AND p.aktiv = 1`,
-    )
-    .get(row.subject_id) as ParticipantJoinRow | undefined;
+    .prepare(`SELECT id, name FROM participants WHERE id = ? AND aktiv = 1`)
+    .get(row.subject_id) as ParticipantRow | undefined;
   if (!p) return null;
-  return {
-    kind: 'participant',
-    id: p.id,
-    name: p.name,
-    course: { id: p.course_id, name: p.course_name },
-  };
+  return { kind: 'participant', id: p.id, name: p.name };
 }
 
 /** Löscht die Session zum Roh-Token (Logout). */

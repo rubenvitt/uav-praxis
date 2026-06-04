@@ -563,3 +563,84 @@ body {
 .sync-fehler .sync-punkt {
   background: var(--akzent);
 }
+
+/* ── Startseite (Zugangsauswahl) ──────────────────────────────────── */
+.start {
+  max-width: 520px;
+}
+
+.start-auswahl {
+  display: grid;
+  gap: 12px;
+  margin-bottom: 20px;
+}
+
+@media (min-width: 480px) {
+  .start-auswahl {
+    grid-template-columns: 1fr 1fr;
+  }
+}
+
+.start-karte {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: 4px;
+  padding: 20px;
+  text-align: left;
+  font: inherit;
+  color: var(--text);
+  background: var(--flaeche);
+  border: 1px solid var(--linie);
+  border-radius: var(--radius-s);
+  cursor: pointer;
+  transition: border-color 0.15s, box-shadow 0.15s;
+}
+
+.start-karte:hover {
+  border-color: var(--akzent);
+  box-shadow: 0 0 0 3px var(--akzent-weich);
+}
+
+.start-karte:focus-visible {
+  outline: 2px solid var(--akzent);
+  outline-offset: 2px;
+}
+
+.start-karte-icon {
+  font-size: 1.6rem;
+  line-height: 1;
+}
+
+.start-karte-titel {
+  font-size: 1.05rem;
+  font-weight: 700;
+}
+
+.start-karte-text {
+  font-size: 0.88rem;
+  color: var(--text-leise);
+}
+
+.start-lokal {
+  align-self: center;
+  padding: 8px 12px;
+  font: inherit;
+  font-size: 0.9rem;
+  color: var(--text-leise);
+  background: none;
+  border: none;
+  text-decoration: underline;
+  text-underline-offset: 3px;
+  cursor: pointer;
+}
+
+.start-lokal:hover {
+  color: var(--text);
+}
+
+.start-lokal:focus-visible {
+  outline: 2px solid var(--akzent);
+  outline-offset: 2px;
+  border-radius: var(--radius-s);
+}

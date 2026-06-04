@@ -6,13 +6,13 @@ beforeEach(() => localStorage.clear());
 
 describe('useFortschritt', () => {
   it('initialisiert jede Aufgabe mit ihrer Default-Zielanzahl', () => {
-    const { result } = renderHook(() => useFortschritt());
+    const { result } = renderHook(() => useFortschritt([]));
     expect(result.current.fortschritt['1-1'].zielanzahl).toBe(4);
     expect(result.current.fortschritt['1-1'].durchfuehrungen).toEqual([]);
   });
 
   it('fügt eine Durchführung hinzu', () => {
-    const { result } = renderHook(() => useFortschritt());
+    const { result } = renderHook(() => useFortschritt([]));
     act(() =>
       result.current.durchfuehrungHinzufuegen('1-1', {
         datum: '2026-06-02',
@@ -25,7 +25,7 @@ describe('useFortschritt', () => {
   });
 
   it('entfernt eine Durchführung', () => {
-    const { result } = renderHook(() => useFortschritt());
+    const { result } = renderHook(() => useFortschritt([]));
     act(() =>
       result.current.durchfuehrungHinzufuegen('1-1', {
         datum: '2026-06-02',
@@ -39,13 +39,13 @@ describe('useFortschritt', () => {
   });
 
   it('setzt die Zielanzahl (minimal 1)', () => {
-    const { result } = renderHook(() => useFortschritt());
+    const { result } = renderHook(() => useFortschritt([]));
     act(() => result.current.zielanzahlSetzen('1-1', 0));
     expect(result.current.fortschritt['1-1'].zielanzahl).toBe(1);
   });
 
   it('schaltet nicht-anwendbar um', () => {
-    const { result } = renderHook(() => useFortschritt());
+    const { result } = renderHook(() => useFortschritt([]));
     act(() => result.current.nichtAnwendbarSetzen('2-1', true));
     expect(result.current.fortschritt['2-1'].nichtAnwendbar).toBe(true);
   });
@@ -60,7 +60,7 @@ describe('useFortschritt', () => {
         },
       }),
     );
-    const { result } = renderHook(() => useFortschritt());
+    const { result } = renderHook(() => useFortschritt([]));
     expect(result.current.fortschritt['1-1'].zielanzahl).toBe(9); // bestehender Stand erhalten
     expect(result.current.fortschritt['2-1']).toBeDefined();      // fehlende Aufgabe nachgemischt
   });
@@ -75,7 +75,7 @@ describe('useFortschritt', () => {
         },
       }),
     );
-    const { result } = renderHook(() => useFortschritt());
+    const { result } = renderHook(() => useFortschritt([]));
     expect(result.current.fortschritt['1-1'].zielanzahl).toBe(7); // unverändert übernommen
   });
 });
