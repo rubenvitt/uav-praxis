@@ -1,7 +1,9 @@
 services:
   app:
-    build: .
-    image: drohnen-trainingsbegleiter
+    # Image wird von der CI gebaut und nach GHCR gepusht (siehe
+    # .github/workflows/docker.yml). Tag `latest` zeigt auf den letzten
+    # Stand von `main`. Aktualisieren mit: docker compose pull && docker compose up -d
+    image: ghcr.io/rubenvitt/uav-praxis:latest
     restart: unless-stopped
     ports:
       - "8787:8787"
