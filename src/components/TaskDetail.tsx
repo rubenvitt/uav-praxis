@@ -4,6 +4,7 @@ import {
   type Durchfuehrung,
   aufgabenStatus,
 } from '../domain/progress';
+import { AnzahlFeld } from './AnzahlFeld';
 import { DurchfuehrungForm } from './DurchfuehrungForm';
 
 type Props = {
@@ -104,12 +105,7 @@ export function TaskDetail({
 
           <label className="feld ziel">
             <span className="feld-label">Zielanzahl</span>
-            <input
-              type="number"
-              min={1}
-              value={fortschritt.zielanzahl}
-              onChange={(e) => onZielanzahl(Number(e.target.value))}
-            />
+            <AnzahlFeld value={fortschritt.zielanzahl} min={1} onValueChange={onZielanzahl} />
           </label>
 
           <ul className="liste">

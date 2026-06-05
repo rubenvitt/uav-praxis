@@ -2,6 +2,7 @@ import { useState } from 'react';
 import { useSuspenseQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import type { TaskDTO, Teil } from '../../shared/types';
 import { api, ApiError, type TaskEingabe } from '../api/client';
+import { AnzahlFeld } from '../components/AnzahlFeld';
 import { adminTasksQuery } from './queries';
 
 interface FormZustand {
@@ -150,13 +151,12 @@ function TaskFormular({
         </div>
         <div className="feld">
           <label htmlFor="task-ziel">Zielanzahl</label>
-          <input
+          <AnzahlFeld
             id="task-ziel"
-            type="number"
-            min={1}
             value={zustand.zielanzahlDefault}
-            onChange={(e) =>
-              setZustand({ ...zustand, zielanzahlDefault: Math.max(1, Number(e.target.value) || 1) })
+            min={1}
+            onValueChange={(n) =>
+              setZustand({ ...zustand, zielanzahlDefault: Math.max(1, Math.floor(n) || 1) })
             }
           />
         </div>
